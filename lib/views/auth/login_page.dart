@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'register_page.dart';
-import '../home/event_list_page.dart';
+import '../home/home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -96,7 +96,7 @@ void _login() async {
    if (mounted) {
   Navigator.pushReplacement(
     context,
-    MaterialPageRoute(builder: (_) => const EventListPage()),
+    MaterialPageRoute(builder: (_) => const HomePage()),
   );
 }
   } catch (e) {
