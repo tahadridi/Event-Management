@@ -260,8 +260,8 @@ class _MyEventsPageState extends State<MyEventsPage> {
                     Expanded(
                       child: _buildStatItem(
                         'Prix',
-                        event.price == 0 ? 'Gratuit' : '${event.price}€',
-                        Icons.euro,
+                        event.price == 0 ? 'Gratuit' : '${event.price}TND',
+                        Icons.attach_money,
                       ),
                     ),
                     Expanded(

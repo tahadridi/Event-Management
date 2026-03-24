@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/event_model.dart';
-
+import '../../views/reservation/booking_page.dart';
 class EventDetailPage extends StatelessWidget {
   final EventModel event;
 
@@ -143,11 +143,11 @@ class EventDetailPage extends StatelessWidget {
                           onPressed: event.availablePlaces == 0
                               ? null
                               : () {
-                                  // Navigation vers réservation (prochaine phase)
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Réservation bientôt disponible !')),
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BookingPage(event: event),
+                                    ),
                                   );
                                 },
                           icon: const Icon(Icons.bookmark_add),

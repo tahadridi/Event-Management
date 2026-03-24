@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/event_service.dart';
+import 'place_picker_page.dart';
 
 class CreateEventPage extends StatefulWidget {
   const CreateEventPage({Key? key}) : super(key: key);
@@ -23,6 +24,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
   TimeOfDay? _selectedTime;
   bool _isFree = false;
   bool _isLoading = false;
+  double? _latitude;
+  double? _longitude;
 
   final List<String> categories = [
     'Conférence',
@@ -107,6 +110,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
         time: _selectedTime!,
         totalPlaces: int.parse(_capacityController.text),
         price: _isFree ? 0.0 : double.parse(_priceController.text),
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (mounted) {
@@ -216,22 +221,62 @@ class _CreateEventPageState extends State<CreateEventPage> {
               ),
               const SizedBox(height: 16),
 
-              // Location
-              TextFormField(
-                controller: _locationController,
-                decoration: InputDecoration(
-                  labelText: 'Lieu',
-                  prefixIcon: const Icon(Icons.location_on),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Location with place picker
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _locationController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Lieu',
+                      prefixIcon: const Icon(Icons.location_on),
+                      suffixIcon: const Icon(Icons.arrow_forward),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onTap: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PlacePickerPage(
+                            initialLat: _latitude,
+                            initialLng: _longitude,
+                            initialLocationName: _locationController.text,
+                          ),
+                        ),
+                      );
+
+                      if (result != null) {
+                        setState(() {
+                          _latitude = result['latitude'];
+                          _longitude = result['longitude'];
+                          _locationController.text =
+                              result['location_name'];
+                        });
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Le lieu est requis';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Le lieu est requis';
-                  }
-                  return null;
-                },
+                  const SizedBox(height: 8),
+                  if (_latitude != null && _longitude != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Text(
+                        'Coordonnées: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -346,7 +391,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                           controller: _priceController,
                           decoration: InputDecoration(
                             labelText: 'Prix (TND)',
-                            prefixIcon: const Icon(Icons.euro),
+                            prefixIcon: null, // remove the Icon
+                              prefixText: 'TND ',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
