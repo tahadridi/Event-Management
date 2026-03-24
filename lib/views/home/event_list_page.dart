@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 import '../../widgets/event_card.dart';
-
+import 'event_detail_page.dart';
 class EventListPage extends StatelessWidget {
   const EventListPage({super.key});
 
@@ -56,8 +56,13 @@ class EventListPage extends StatelessWidget {
               return EventCard(
                 event: events[index],
                 onTap: () {
-                  // Navigation vers détail (prochaine étape)
-                },
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailPage(event: events[index]),
+                      ),
+                    );
+                  },
               );
             },
           );
