@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'register_page.dart';
+import '../home/event_list_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -28,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
               const Icon(Icons.event, size: 80, color: Colors.deepPurple),
               const SizedBox(height: 16),
               const Text(
-                'DevMob Events',
+                ' Event Management',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 40),
@@ -92,11 +93,12 @@ void _login() async {
       password: _passwordController.text.trim(),
     );
     // Navigation vers l'accueil (on fera ça juste après)
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connecté avec succès !')),
-      );
-    }
+   if (mounted) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => const EventListPage()),
+  );
+}
   } catch (e) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
