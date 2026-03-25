@@ -2,22 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/review_service.dart';
 
-class ReviewsList extends StatelessWidget {
+class ReviewsList extends StatefulWidget {
   final String eventId;
 
   const ReviewsList({super.key, required this.eventId});
 
   @override
+  State<ReviewsList> createState() => _ReviewsListState();
+}
+
+class _ReviewsListState extends State<ReviewsList> {
+  late final ReviewService _reviewService;
+
+  @override
+  void initState() {
+    super.initState();
+    _reviewService = ReviewService();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final reviewService = ReviewService();
 
     return StreamBuilder(
-      stream: reviewService.getEventReviews(eventId),
+      stream: _reviewService.getEventReviews(widget.eventId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Erreur au chargement des avis',
+              style: TextStyle(color: Colors.red[600]),
+            ),
           );
         }
 

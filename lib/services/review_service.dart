@@ -11,10 +11,15 @@ class ReviewService {
     return _db
         .collection('reviews')
         .where('eventId', isEqualTo: eventId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => ReviewModel.fromFirestore(doc)).toList());
+        .map((snapshot) {
+          final reviews = snapshot.docs
+              .map((doc) => ReviewModel.fromFirestore(doc))
+              .toList();
+          // Sort by createdAt on client side to avoid composite index requirement
+          reviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return reviews;
+        });
   }
 
   // Get average rating for event
