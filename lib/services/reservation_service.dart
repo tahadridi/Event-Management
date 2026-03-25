@@ -103,7 +103,10 @@ Stream<List<Map<String, dynamic>>> getUserBookingHistory() {
         'availablePlaces': FieldValue.increment(reservation.numberOfSeats),
       });
 
-      await _db.collection('reservations').doc(reservationId).delete();
+      // Mettre à jour le statut à 'Annulée' au lieu de supprimer
+      await _db.collection('reservations').doc(reservationId).update({
+        'status': 'Annulée',
+      });
       return true;
     } catch (e) {
       rethrow;
