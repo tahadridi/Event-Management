@@ -6,9 +6,10 @@ class ReservationModel {
   final String eventTitle;
   final String userId;
   final String userName;
+  final String organizerId;
   final int numberOfSeats;
   final double totalPrice;
-  final String status; // 'confirmed' or 'cancelled'
+  final String status; // 'Confirmée' or 'Annulée'
   final DateTime createdAt;
 
   ReservationModel({
@@ -21,6 +22,7 @@ class ReservationModel {
     required this.totalPrice,
     required this.status,
     required this.createdAt,
+    this.organizerId = '',
   });
 
   Map<String, dynamic> toMap() => {
@@ -31,21 +33,26 @@ class ReservationModel {
         'numberOfSeats': numberOfSeats,
         'totalPrice': totalPrice,
         'status': status,
+        'organizerId': organizerId,
         'createdAt': Timestamp.fromDate(createdAt),
       };
 
   factory ReservationModel.fromDoc(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    return ReservationModel(
-      id: doc.id,
-      eventId: d['eventId'] ?? '',
-      eventTitle: d['eventTitle'] ?? '',
-      userId: d['userId'] ?? '',
-      userName: d['userName'] ?? '',
-      numberOfSeats: d['numberOfSeats'] ?? 1,
-      totalPrice: (d['totalPrice'] ?? 0).toDouble(),
-      status: d['status'] ?? 'confirmed',
-      createdAt: (d['createdAt'] as Timestamp).toDate(),
-    );
-  }
+  final d = doc.data() as Map<String, dynamic>;
+  return ReservationModel(
+    id: doc.id,
+    eventId: d['eventId'] ?? '',
+    eventTitle: d['eventTitle'] ?? '',
+    userId: d['userId'] ?? '',
+    userName: d['userName'] ?? '',
+    numberOfSeats: d['numberOfSeats'] ?? 1,
+    totalPrice: (d['totalPrice'] ?? 0).toDouble(),
+    status: d['status'] ?? 'confirmed',
+    createdAt: (d['createdAt'] as Timestamp).toDate(),
+  );
 }
+
+  // Alias for consistency with other models
+  factory ReservationModel.fromFirestore(DocumentSnapshot doc) {
+    return ReservationModel.fromDoc(doc);
+  }}

@@ -17,12 +17,18 @@ class AuthService {
       password: password,
     );
 
-    // Sauvegarder le rôle dans Firestore
+    // Profil complet avec tous les champs nécessaires
     await _db.collection('users').doc(cred.user!.uid).set({
+      'id': cred.user!.uid,
       'name': name,
       'email': email,
+      'phone': '',
+      'bio': '',
+      'profileImageUrl': '',
       'role': isOrganizer ? 'organizer' : 'user',
+      'favoriteEventIds': [],                  // ← fix bug favoris
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     return cred;
