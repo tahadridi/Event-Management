@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
+import '../../services/user_service.dart';
 import '../home/event_detail_page.dart';
 
 class EventSearchPage extends StatefulWidget {
@@ -21,8 +22,10 @@ class _EventSearchPageState extends State<EventSearchPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _showFilters = false;
+  bool _showOnlyFavorites = false;
   List<EventModel> _searchResults = [];
   bool _isLoading = false;
+  Set<String> _userFavorites = {};
 
   final List<String> _categories = [
     'Tous',
@@ -36,13 +39,33 @@ class _EventSearchPageState extends State<EventSearchPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserFavorites();
+  }
+
+  Future<void> _loadUserFavorites() async {
+    final userService = UserService();
+    try {
+      final favorites = await userService.getUserFavoritesStream().first;
+      if (mounted) {
+        setState(() => _userFavorites = Set.from(favorites));
+        // Trigger search again to apply favorites sorting now that they're loaded
+        await _performSearch();
+      }
+    } catch (e) {
+      print('Error loading favorites: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _performSearch() async {
-    if (_searchController.text.isEmpty && _selectedCategory == 'Tous') {
+    if (_searchController.text.isEmpty && _selectedCategory == 'Tous' && !_showOnlyFavorites) {
       setState(() => _searchResults = []);
       return;
     }
@@ -58,8 +81,22 @@ class _EventSearchPageState extends State<EventSearchPage> {
         endDate: _endDate,
       );
 
+      // Filtrer les favoris si activé
+      var filtered = _showOnlyFavorites
+          ? results.where((event) => _userFavorites.contains(event.id)).toList()
+          : results;
+
+      // Trier pour mettre les favoris en haut
+      filtered.sort((a, b) {
+        final aIsFav = _userFavorites.contains(a.id);
+        final bIsFav = _userFavorites.contains(b.id);
+        if (aIsFav && !bIsFav) return -1;
+        if (!aIsFav && bIsFav) return 1;
+        return 0;
+      });
+
       setState(() {
-        _searchResults = results;
+        _searchResults = filtered;
         _isLoading = false;
       });
     } catch (e) {
@@ -279,6 +316,27 @@ class _EventSearchPageState extends State<EventSearchPage> {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+
+                  // Favoris filter
+                  const Text(
+                    'Favoris',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  FilterChip(
+                    selected: _showOnlyFavorites,
+                    label: const Text('Afficher uniquement les favoris'),
+                    onSelected: (selected) {
+                      setState(() => _showOnlyFavorites = selected);
+                      _performSearch();
+                    },
+                    backgroundColor: Colors.grey.shade200,
+                    selectedColor: Colors.deepPurple,
+                    labelStyle: TextStyle(
+                      color: _showOnlyFavorites ? Colors.white : Colors.black,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   
                   // Reset button
@@ -293,6 +351,7 @@ class _EventSearchPageState extends State<EventSearchPage> {
                           _maxPrice = 200;
                           _startDate = null;
                           _endDate = null;
+                          _showOnlyFavorites = false;
                           _searchResults = [];
                         });
                       },

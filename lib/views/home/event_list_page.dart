@@ -1,18 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
+import '../../services/user_service.dart';
 import '../../widgets/event_card.dart';
 import 'event_detail_page.dart';
-class EventListPage extends StatelessWidget {
+
+class EventListPage extends StatefulWidget {
   const EventListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final eventService = EventService();
+  State<EventListPage> createState() => _EventListPageState();
+}
 
+class _EventListPageState extends State<EventListPage> {
+  final eventService = EventService();
+  final userService = UserService();
+  Set<String> _userFavorites = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserFavorites();
+  }
+
+  Future<void> _loadUserFavorites() async {
+    try {
+      final favorites = await userService.getUserFavoritesStream().first;
+      if (mounted) {
+        setState(() => _userFavorites = Set.from(favorites));
+      }
+    } catch (e) {
+      print('Error loading favorites: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Événements'),
+        title: const Text('Découvrir'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
@@ -49,20 +76,34 @@ class EventListPage extends StatelessWidget {
               ),
             );
           }
-          final events = snapshot.data!;
+          
+          var events = snapshot.data!;
+          
+          // Trier pour mettre les favoris en haut
+          events.sort((a, b) {
+            final aIsFav = _userFavorites.contains(a.id);
+            final bIsFav = _userFavorites.contains(b.id);
+            if (aIsFav && !bIsFav) return -1;
+            if (!aIsFav && bIsFav) return 1;
+            return 0;
+          });
+          
           return ListView.builder(
             itemCount: events.length,
             itemBuilder: (context, index) {
+              final event = events[index];
+              final isFav = _userFavorites.contains(event.id);
               return EventCard(
-                event: events[index],
+                event: event,
+                isFavorite: isFav,
                 onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EventDetailPage(event: events[index]),
-                      ),
-                    );
-                  },
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EventDetailPage(event: event),
+                    ),
+                  );
+                },
               );
             },
           );

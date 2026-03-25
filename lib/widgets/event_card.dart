@@ -5,8 +5,14 @@ import 'package:intl/intl.dart';
 class EventCard extends StatelessWidget {
   final EventModel event;
   final VoidCallback onTap;
+  final bool isFavorite;
 
-  const EventCard({super.key, required this.event, required this.onTap});
+  const EventCard({
+    super.key,
+    required this.event,
+    required this.onTap,
+    this.isFavorite = false,
+  });
 
   Color get _statusColor {
     switch (event.status) {
@@ -41,20 +47,28 @@ class EventCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 12)),
                     backgroundColor: Colors.deepPurple.shade50,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      event.status,
-                      style: TextStyle(
-                          color: _statusColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          event.status,
+                          style: TextStyle(
+                              color: _statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      if (isFavorite) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.favorite, size: 18, color: Colors.red),
+                      ],
+                    ],
                   ),
                 ],
               ),

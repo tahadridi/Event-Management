@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/event_model.dart';
 import '../../services/review_service.dart';
 import '../../services/user_service.dart';
@@ -76,14 +77,33 @@ bool _initialLoadDone = false;
   }
 
   // ← Plus de _submitReview ici, c'est dans AddReviewSheet
-  void _showAddReviewDialog() {
+  void _showAddReviewDialog() async {
+    // Get user name from Firestore
+    String userName = 'Utilisateur';
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        if (userDoc.exists) {
+          userName = userDoc.data()?['name'] ?? _auth.currentUser?.email ?? 'Utilisateur';
+        }
+      }
+    } catch (e) {
+      print('Error loading user name: $e');
+    }
+
+    if (!mounted) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       builder: (_) => AddReviewSheet(
         eventId: widget.event.id,
-        userName: _auth.currentUser?.displayName ?? 'Utilisateur',
+        userName: userName,
         onReviewSubmitted: () async {
           // Just refresh the rating, don't rebuild entire page
           if (mounted) {
@@ -291,7 +311,7 @@ bool _initialLoadDone = false;
                           fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
 
-                  // Bouton donner avis OU message déjà donné
+                  // Bouton donner avis — toujours disponible
                if (!_initialLoadDone)
   const SizedBox(
     height: 44,
@@ -299,30 +319,13 @@ bool _initialLoadDone = false;
       child: CircularProgressIndicator(strokeWidth: 2),
     ),
   )
-else if (!_hasReviewed)
+else
   SizedBox(
     width: double.infinity,
     child: OutlinedButton.icon(
       onPressed: _showAddReviewDialog,
       icon: const Icon(Icons.rate_review),
-      label: const Text('Donner votre avis'),
-    ),
-  )
-else
-  Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.green.shade50,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.green),
-    ),
-    child: const Row(
-      children: [
-        Icon(Icons.check_circle, color: Colors.green, size: 18),
-        SizedBox(width: 8),
-        Text('Vous avez déjà donné votre avis',
-            style: TextStyle(color: Colors.green)),
-      ],
+      label: Text(_hasReviewed ? 'Modifier votre avis' : 'Donner votre avis'),
     ),
   ),
 
