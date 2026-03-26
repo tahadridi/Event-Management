@@ -6,7 +6,8 @@ import 'event_list_page.dart';
 import '../organizer/my_events_page.dart';
 import '../user/profile_page.dart';
 import '../user/booking_history_page.dart';
-import '../home/map_page.dart';
+import 'map_page.dart';
+import 'calendar_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -45,6 +46,7 @@ class _HomePageState extends State<HomePage> {
     EventListPage(),
     BookingHistoryPage(),
     MapPage(),
+    CalendarPage(),
     UserProfilePage()
     
     
@@ -56,6 +58,7 @@ class _HomePageState extends State<HomePage> {
     BookingHistoryPage(),
     MyEventsPage(),
     MapPage(),
+    CalendarPage(),
     UserProfilePage(),
   ];
 
@@ -90,6 +93,8 @@ class _HomePageState extends State<HomePage> {
         BottomNavigationBarItem(
             icon: Icon(Icons.map_outlined),label: 'Carte'),
         BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined),label: 'Calendrier'),
+        BottomNavigationBarItem(
             icon: Icon(Icons.person), label: 'Profil')
        
      
@@ -104,6 +109,8 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.event), label: 'Mes événements'),
         BottomNavigationBarItem(
             icon: Icon(Icons.map_outlined),label: 'Carte'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_month_outlined),label: 'Calendrier',),
         BottomNavigationBarItem(
             icon: Icon(Icons.person), label: 'Profil'),
       ];
