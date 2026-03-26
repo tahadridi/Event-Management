@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/event_model.dart';
 import 'package:intl/intl.dart';
+import '../models/event_model.dart';
 
 class EventCard extends StatelessWidget {
   final EventModel event;
@@ -13,6 +13,26 @@ class EventCard extends StatelessWidget {
     required this.onTap,
     this.isFavorite = false,
   });
+
+  Color get _categoryColor {
+    switch (event.category.toLowerCase()) {
+      case 'concert':
+      case 'musique':
+        return const Color(0xFF7C3AED);
+      case 'sport':
+        return const Color(0xFF059669);
+      case 'art':
+      case 'exposition':
+        return const Color(0xFFDB2777);
+      case 'conférence':
+      case 'séminaire':
+        return const Color(0xFF2563EB);
+      case 'atelier':
+        return const Color(0xFFD97706);
+      default:
+        return const Color(0xFF6366F1);
+    }
+  }
 
   Color get _statusColor {
     switch (event.status) {
@@ -27,107 +47,205 @@ class EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final catColor = _categoryColor;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Colored top banner
+            Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: catColor,
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20)),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Chip(
-                    label: Text(event.category,
-                        style: const TextStyle(fontSize: 12)),
-                    backgroundColor: Colors.deepPurple.shade50,
-                  ),
+                  // Top row: category + status + favorite
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          color: catColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          event.category,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: catColor,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _statusColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           event.status,
                           style: TextStyle(
-                              color: _statusColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _statusColor,
+                          ),
                         ),
                       ),
-                      if (isFavorite) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.favorite, size: 18, color: Colors.red),
-                      ],
+                      const Spacer(),
+                      if (isFavorite)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.favorite,
+                              size: 14, color: Colors.red),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Title
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Date + Location
+                  _infoRow(
+                    Icons.calendar_month_outlined,
+                    DateFormat('EEE dd MMM • HH:mm', 'fr').format(event.date),
+                    catColor,
+                  ),
+                  const SizedBox(height: 6),
+                  _infoRow(
+                    Icons.location_on_outlined,
+                    event.location,
+                    catColor,
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Bottom row: price + places
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Price badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: catColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          event.price == 0
+                              ? 'Gratuit'
+                              : '${event.price.toStringAsFixed(0)} TND',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+
+                      // Places left
+                      Row(
+                        children: [
+                          Icon(
+                            event.availablePlaces > 0
+                                ? Icons.event_seat_outlined
+                                : Icons.block,
+                            size: 15,
+                            color: event.availablePlaces > 10
+                                ? Colors.green
+                                : event.availablePlaces > 0
+                                    ? Colors.orange
+                                    : Colors.red,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            event.availablePlaces == 0
+                                ? 'Complet'
+                                : '${event.availablePlaces} places',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: event.availablePlaces > 10
+                                  ? Colors.green
+                                  : event.availablePlaces > 0
+                                      ? Colors.orange
+                                      : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(event.title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(event.location,
-                        style: const TextStyle(color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      DateFormat('dd MMM yyyy • HH:mm').format(event.date),
-                      style: const TextStyle(color: Colors.grey),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    event.price == 0
-                        ? 'Gratuit'
-                        : '${event.price.toStringAsFixed(0)} TND',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple.shade700,
-                    ),
-                  ),
-                  Text(
-                    '${event.availablePlaces} places restantes',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: color.withOpacity(0.7)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xFF555555)),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+      ],
     );
   }
 }

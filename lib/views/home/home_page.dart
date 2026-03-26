@@ -3,11 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/notification_badge.dart';
 import 'event_list_page.dart';
-import 'event_search_page.dart';
 import '../organizer/my_events_page.dart';
 import '../user/profile_page.dart';
 import '../user/booking_history_page.dart';
-
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -41,19 +39,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Pages USER (index 0,1,2,3)
+  // USER: Découvrir · Réservations · Profil
   static const List<Widget> _userPages = [
     EventListPage(),
-    EventSearchPage(),
     BookingHistoryPage(),
     UserProfilePage(),
-    
   ];
 
-  // Pages ORGANISATEUR (index 0,1,2,3,4)
+  // ORGANIZER: Découvrir · Réservations · Mes événements · Profil
   static const List<Widget> _organizerPages = [
     EventListPage(),
-    EventSearchPage(),
     BookingHistoryPage(),
     MyEventsPage(),
     UserProfilePage(),
@@ -63,19 +58,13 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     if (_isOrganizer == null) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+          body: Center(child: CircularProgressIndicator()));
     }
 
     final pages = _isOrganizer! ? _organizerPages : _userPages;
-
-    // Sécurité : si l'index dépasse les pages disponibles, reset à 0
-    if (_selectedIndex >= pages.length) {
-      _selectedIndex = 0;
-    }
+    if (_selectedIndex >= pages.length) _selectedIndex = 0;
 
     return Scaffold(
-      appBar: _selectedIndex == 0 ? _buildAppBar() : null,
       body: pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -83,64 +72,28 @@ class _HomePageState extends State<HomePage> {
         selectedItemColor: Colors.deepPurple,
         unselectedItemColor: Colors.grey,
         onTap: (index) => setState(() => _selectedIndex = index),
-        items: _isOrganizer!
-            ? _organizerNavItems()
-            : _userNavItems(),
+        items: _isOrganizer! ? _organizerNavItems() : _userNavItems(),
       ),
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text('DevMob Events'),
-      backgroundColor: Colors.deepPurple,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      actions: [NotificationBadge()],
-    );
-  }
-
-  // 4 items pour user
   List<BottomNavigationBarItem> _userNavItems() => const [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.explore),
-      label: 'Découvrir',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.search),
-      label: 'Rechercher',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.bookmark),
-      label: 'Réservations',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Profil',
-    ),
-  ];
+        BottomNavigationBarItem(
+            icon: Icon(Icons.explore), label: 'Découvrir'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark), label: 'Réservations'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.person), label: 'Profil'),
+      ];
 
-  // 5 items pour organisateur
   List<BottomNavigationBarItem> _organizerNavItems() => const [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.explore),
-      label: 'Découvrir',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.search),
-      label: 'Rechercher',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.bookmark),
-      label: 'Réservations',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.event),
-      label: 'Mes événements',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Profil',
-    ),
-  ];
+        BottomNavigationBarItem(
+            icon: Icon(Icons.explore), label: 'Découvrir'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark), label: 'Réservations'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.event), label: 'Mes événements'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.person), label: 'Profil'),
+      ];
 }

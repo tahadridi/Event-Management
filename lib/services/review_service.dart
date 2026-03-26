@@ -22,23 +22,29 @@ class ReviewService {
         });
   }
 
-  // Get average rating for event
-  Future<double> getAverageRating(String eventId) async {
+  // Get average rating and count for event
+  Future<Map<String, dynamic>> getAverageRatingAndCount(String eventId) async {
     try {
       final snapshot = await _db
           .collection('reviews')
           .where('eventId', isEqualTo: eventId)
           .get();
 
-      if (snapshot.docs.isEmpty) return 0.0;
+      if (snapshot.docs.isEmpty) return {'rating': 0.0, 'count': 0};
 
       final ratings = snapshot.docs.map((doc) => doc['rating'] as int).toList();
       final average = ratings.reduce((a, b) => a + b) / ratings.length;
       
-      return average;
+      return {'rating': average, 'count': snapshot.docs.length};
     } catch (e) {
-      return 0.0;
+      return {'rating': 0.0, 'count': 0};
     }
+  }
+
+  // Get average rating for event (kept for backward compatibility)
+  Future<double> getAverageRating(String eventId) async {
+    final result = await getAverageRatingAndCount(eventId);
+    return result['rating'] as double;
   }
 
   // Add review

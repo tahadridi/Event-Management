@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'DevMob Events',
+      title: 'Reservi Events',
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('fr')],
       debugShowCheckedModeBanner: false,
