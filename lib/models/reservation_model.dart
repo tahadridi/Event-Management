@@ -49,6 +49,7 @@ class ReservationModel {
     totalPrice: (d['totalPrice'] ?? 0).toDouble(),
     status: d['status'] ?? 'confirmed',
     createdAt: (d['createdAt'] as Timestamp).toDate(),
+    organizerId: d['organizerId'] ?? '',
   );
 }
 

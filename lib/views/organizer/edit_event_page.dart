@@ -1,33 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 import 'place_picker_page.dart';
 
-class CreateEventPage extends StatefulWidget {
-  const CreateEventPage({Key? key}) : super(key: key);
+class EditEventPage extends StatefulWidget {
+  final EventModel event;
+
+  const EditEventPage({Key? key, required this.event}) : super(key: key);
 
   @override
-  State<CreateEventPage> createState() => _CreateEventPageState();
+  State<EditEventPage> createState() => _EditEventPageState();
 }
 
-class _CreateEventPageState extends State<CreateEventPage>
+class _EditEventPageState extends State<EditEventPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _capacityController = TextEditingController();
-  final _priceController = TextEditingController();
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _locationController;
+  late TextEditingController _capacityController;
+  late TextEditingController _priceController;
 
-  String _selectedCategory = 'Conference';
-  DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
-  bool _isFree = false;
+  late String _selectedCategory;
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+  late bool _isFree;
   bool _isLoading = false;
-  double? _latitude;
-  double? _longitude;
+  late double? _latitude;
+  late double? _longitude;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -48,6 +51,23 @@ class _CreateEventPageState extends State<CreateEventPage>
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.event.title);
+    _descriptionController = TextEditingController(text: widget.event.description);
+    _locationController = TextEditingController(text: widget.event.location);
+    _capacityController = TextEditingController(
+      text: widget.event.totalPlaces.toString(),
+    );
+    _priceController = TextEditingController(
+      text: widget.event.price.toStringAsFixed(2),
+    );
+
+    _selectedCategory = widget.event.category;
+    _selectedDate = widget.event.date;
+    _selectedTime = TimeOfDay.fromDateTime(widget.event.date);
+    _isFree = widget.event.price == 0;
+    _latitude = widget.event.latitude;
+    _longitude = widget.event.longitude;
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -76,7 +96,7 @@ class _CreateEventPageState extends State<CreateEventPage>
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate,
       firstDate: DateTime.now(),
       lastDate: DateTime(2099),
       builder: (context, child) {
@@ -102,7 +122,7 @@ class _CreateEventPageState extends State<CreateEventPage>
   Future<void> _selectTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _selectedTime,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -124,17 +144,7 @@ class _CreateEventPageState extends State<CreateEventPage>
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      if (_selectedDate == null) {
-        _showErrorSnackBar('Please select a date');
-        return;
-      }
-
-      if (_selectedTime == null) {
-        _showErrorSnackBar('Please select a time');
-        return;
-      }
-
-      _createEvent();
+      _updateEvent();
     }
   }
 
@@ -151,19 +161,20 @@ class _CreateEventPageState extends State<CreateEventPage>
     );
   }
 
-  void _createEvent() async {
+  void _updateEvent() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      await _eventService.createEvent(
+      await _eventService.updateEvent(
+        eventId: widget.event.id,
         title: _titleController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
         location: _locationController.text,
-        date: _selectedDate!,
-        time: _selectedTime!,
+        date: _selectedDate,
+        time: _selectedTime,
         totalPlaces: int.parse(_capacityController.text),
         price: _isFree ? 0.0 : double.parse(_priceController.text),
         latitude: _latitude,
@@ -173,7 +184,7 @@ class _CreateEventPageState extends State<CreateEventPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Event created successfully!'),
+            content: const Text('Event updated successfully!'),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -181,7 +192,7 @@ class _CreateEventPageState extends State<CreateEventPage>
             ),
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -202,7 +213,7 @@ class _CreateEventPageState extends State<CreateEventPage>
       backgroundColor: const Color(0xFFF8F9FF),
       appBar: AppBar(
         title: const Text(
-          'Create Event',
+          'Edit Event',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w600,
@@ -250,7 +261,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Detail de l\'événement',
+                          'Edit Event Details',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
@@ -260,7 +271,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Remplissez les informations ci-dessous pour créer votre événement',
+                          'Update the information below to modify your event',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey[600],
@@ -273,15 +284,15 @@ class _CreateEventPageState extends State<CreateEventPage>
                   // Title Field
                   _buildInputField(
                     controller: _titleController,
-                    label: 'Nom de l\'événement',
+                    label: 'Event Title',
                     icon: Icons.title,
-                    hint: 'Donnez le nom de l\'événement',
+                    hint: 'Update your event title',
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Le nom de l\'événement est requis';
+                        return 'Title is required';
                       }
                       if (value.length < 3) {
-                        return 'Le nom de l\'événement doit comporter au moins 3 caractères';
+                        return 'Title must be at least 3 characters';
                       }
                       return null;
                     },
@@ -291,7 +302,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                   // Category Dropdown
                   _buildDropdownField(
                     value: _selectedCategory,
-                    label: 'Catégorie',
+                    label: 'Category',
                     icon: Icons.category,
                     items: categories,
                     onChanged: (value) {
@@ -307,14 +318,14 @@ class _CreateEventPageState extends State<CreateEventPage>
                     controller: _descriptionController,
                     label: 'Description',
                     icon: Icons.description,
-                    hint: 'Décrivez ce que les participants peuvent attendre de votre événement',
+                    hint: 'Describe what attendees can expect',
                     maxLines: 4,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Description attendue';
+                        return 'Description is required';
                       }
                       if (value.length < 10) {
-                        return 'Description doit comporter au moins 10 caractères';
+                        return 'Description must be at least 10 characters';
                       }
                       return null;
                     },
@@ -380,16 +391,16 @@ class _CreateEventPageState extends State<CreateEventPage>
                   // Capacity Field
                   _buildInputField(
                     controller: _capacityController,
-                    label: 'Capacité',
+                    label: 'Capacity',
                     icon: Icons.people,
-                    hint: 'Nombre de places disponibles',
+                    hint: 'Number of seats available',
                     keyboardType: TextInputType.number,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'La capacité est requise';
+                        return 'Capacity is required';
                       }
                       if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                        return 'Entrez un nombre valide supérieur à 0';
+                        return 'Enter a valid number greater than 0';
                       }
                       return null;
                     },
@@ -438,7 +449,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Événement Gratuit',
+                                  'Free Event',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -452,7 +463,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   setState(() {
                                     _isFree = value;
                                     if (_isFree) {
-                                      _priceController.clear();
+                                      _priceController.text = '0';
                                     }
                                   });
                                 },
@@ -466,20 +477,20 @@ class _CreateEventPageState extends State<CreateEventPage>
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             child: _buildInputField(
                               controller: _priceController,
-                              label: 'Prix',
+                              label: 'Price',
                               icon: Icons.attach_money,
-                              
+                              hint: 'Price in TND',
                               prefixText: 'TND ',
                               keyboardType: TextInputType.number,
                               validator: (value) {
                                 if (!_isFree &&
                                     (value == null || value.isEmpty)) {
-                                  return 'Le prix est requis pour les événements payants';
+                                  return 'Price is required';
                                 }
                                 if (value != null &&
                                     value.isNotEmpty &&
                                     double.tryParse(value) == null) {
-                                  return 'Entrez un prix valide';
+                                  return 'Enter a valid price';
                                 }
                                 return null;
                               },
@@ -507,7 +518,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                             ),
                           ),
                           child: Text(
-                            'Annuler',
+                            'Cancel',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -539,7 +550,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   ),
                                 )
                               : const Text(
-                                  'Créer l\'événement',
+                                  'Save Changes',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -694,7 +705,7 @@ class _CreateEventPageState extends State<CreateEventPage>
           setState(() {
             _latitude = result['latitude'];
             _longitude = result['longitude'];
-            _locationController.text = result['nom du lieu'];
+            _locationController.text = result['location_name'];
           });
         }
       },
@@ -715,13 +726,13 @@ class _CreateEventPageState extends State<CreateEventPage>
           readOnly: true,
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'La localisation est requise';
+              return 'Location is required';
             }
             return null;
           },
           decoration: InputDecoration(
-            labelText: 'Lieu',
-            hintText: 'cliquez pour choisir un lieu',
+            labelText: 'Location',
+            hintText: 'Tap to select location',
             prefixIcon: const Icon(Icons.location_on, color: Color(0xFF6366F1), size: 20),
             suffixIcon: Container(
               margin: const EdgeInsets.all(8),
@@ -791,13 +802,11 @@ class _CreateEventPageState extends State<CreateEventPage>
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
           child: Text(
-            _selectedDate != null
-                ? DateFormat('dd MMM yyyy').format(_selectedDate!)
-                : 'Choisissez une date',
+            DateFormat('dd MMM yyyy').format(_selectedDate),
             style: TextStyle(
               fontSize: 16,
-              color: _selectedDate != null ? Colors.grey[800] : Colors.grey[500],
-              fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
+              color: Colors.grey[800],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -822,7 +831,7 @@ class _CreateEventPageState extends State<CreateEventPage>
         ),
         child: InputDecorator(
           decoration: InputDecoration(
-            labelText: 'Temps',
+            labelText: 'Time',
             prefixIcon: const Icon(Icons.access_time, color: Color(0xFF6366F1), size: 20),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(20),
@@ -833,13 +842,11 @@ class _CreateEventPageState extends State<CreateEventPage>
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
           child: Text(
-            _selectedTime != null
-                ? _selectedTime!.format(context)
-                : 'Choisissez une heure',
+            _selectedTime.format(context),
             style: TextStyle(
               fontSize: 16,
-              color: _selectedTime != null ? Colors.grey[800] : Colors.grey[500],
-              fontWeight: _selectedTime != null ? FontWeight.w500 : FontWeight.normal,
+              color: Colors.grey[800],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

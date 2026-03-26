@@ -127,24 +127,27 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Color get _categoryColor {
-    switch (widget.event.category.toLowerCase()) {
-      case 'concert':
-      case 'musique':
-        return const Color(0xFF7C3AED);
-      case 'sport':
-        return const Color(0xFF059669);
-      case 'art':
-      case 'exposition':
-        return const Color(0xFFDB2777);
-      case 'conférence':
-      case 'séminaire':
-        return const Color(0xFF2563EB);
-      case 'atelier':
-        return const Color(0xFFD97706);
-      default:
-        return const Color(0xFF6366F1);
-    }
+  switch (widget.event.category.toLowerCase()) {
+    case 'concert':
+    case 'musique':
+      return const Color(0xFF7C3AED);
+    case 'Événement sportif':  
+    case 'sport':
+      return const Color(0xFF059669);
+    case 'art':
+    case 'exposition':
+      return const Color(0xFFDB2777);
+    case 'conférence':
+    case 'séminaire':
+      return const Color(0xFF2563EB);
+    case 'atelier':
+      return const Color(0xFFD97706);
+    case 'réunion':
+      return const Color(0xFF8B5CF6);
+    default:
+      return const Color(0xFF6366F1);
   }
+}
 
   Color get _statusColor {
     switch (widget.event.status) {

@@ -271,5 +271,62 @@ class EventService {
       throw Exception('Erreur lors de la mise à jour: $e');
     }
   }
+
+  // Mettre à jour un événement complet
+  Future<void> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    required String category,
+    required String location,
+    required DateTime date,
+    required TimeOfDay time,
+    required int totalPlaces,
+    required double price,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      final User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Utilisateur non authentifié');
+      }
+
+      final eventDoc = await _db.collection('events').doc(eventId).get();
+      if (!eventDoc.exists) {
+        throw Exception('Événement non trouvé');
+      }
+
+      final event = EventModel.fromFirestore(eventDoc);
+      if (event.organizerId != currentUser.uid) {
+        throw Exception(
+            'Vous n\'êtes pas autorisé à modifier cet événement');
+      }
+
+      // Combiner la date et l'heure
+      final DateTime eventDateTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+
+      await _db.collection('events').doc(eventId).update({
+        'title': title,
+        'description': description,
+        'category': category,
+        'location': location,
+        'latitude': latitude ?? 0.0,
+        'longitude': longitude ?? 0.0,
+        'date': Timestamp.fromDate(eventDateTime),
+        'totalPlaces': totalPlaces,
+        'price': price,
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour de l\'événement: $e');
+    }
+  }
 }
 
