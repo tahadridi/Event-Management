@@ -6,6 +6,7 @@ import 'event_list_page.dart';
 import '../organizer/my_events_page.dart';
 import '../user/profile_page.dart';
 import '../user/booking_history_page.dart';
+import '../home/map_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -43,7 +44,10 @@ class _HomePageState extends State<HomePage> {
   static const List<Widget> _userPages = [
     EventListPage(),
     BookingHistoryPage(),
-    UserProfilePage(),
+    MapPage(),
+    UserProfilePage()
+    
+    
   ];
 
   // ORGANIZER: Découvrir · Réservations · Mes événements · Profil
@@ -51,6 +55,7 @@ class _HomePageState extends State<HomePage> {
     EventListPage(),
     BookingHistoryPage(),
     MyEventsPage(),
+    MapPage(),
     UserProfilePage(),
   ];
 
@@ -83,7 +88,11 @@ class _HomePageState extends State<HomePage> {
         BottomNavigationBarItem(
             icon: Icon(Icons.bookmark), label: 'Réservations'),
         BottomNavigationBarItem(
-            icon: Icon(Icons.person), label: 'Profil'),
+            icon: Icon(Icons.map_outlined),label: 'Carte'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.person), label: 'Profil')
+       
+     
       ];
 
   List<BottomNavigationBarItem> _organizerNavItems() => const [
@@ -93,6 +102,8 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.bookmark), label: 'Réservations'),
         BottomNavigationBarItem(
             icon: Icon(Icons.event), label: 'Mes événements'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined),label: 'Carte'),
         BottomNavigationBarItem(
             icon: Icon(Icons.person), label: 'Profil'),
       ];
