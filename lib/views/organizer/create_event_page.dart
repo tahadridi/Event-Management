@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../services/event_service.dart';
 import 'place_picker_page.dart';
 
@@ -21,13 +24,17 @@ class _CreateEventPageState extends State<CreateEventPage>
   final _capacityController = TextEditingController();
   final _priceController = TextEditingController();
 
-  String _selectedCategory = 'Conference';
+  String _selectedCategory = 'Conférence';
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isFree = false;
   bool _isLoading = false;
   double? _latitude;
   double? _longitude;
+  
+  File? _selectedImage;
+  String? _imageUrl;
+  bool _isUploadingImage = false;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -44,12 +51,25 @@ class _CreateEventPageState extends State<CreateEventPage>
   ];
 
   final EventService _eventService = EventService();
+  final ImagePicker _picker = ImagePicker();
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  // Color palette
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFF5EDE2);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _fadeAnimation = CurvedAnimation(
@@ -73,6 +93,206 @@ class _CreateEventPageState extends State<CreateEventPage>
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+          _imageUrl = null;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erreur lors de la sélection de l\'image: $e');
+    }
+  }
+
+  Future<String?> _uploadImage() async {
+  if (_selectedImage == null) return null;
+  
+  setState(() {
+    _isUploadingImage = true;
+  });
+  
+  try {
+    // Vérifier que le fichier existe
+    if (!await _selectedImage!.exists()) {
+      throw Exception('Le fichier image n\'existe pas');
+    }
+    
+    // Vérifier la taille du fichier
+    final fileSize = await _selectedImage!.length();
+    print('Taille du fichier: ${fileSize / (1024 * 1024)} MB');
+    
+    if (fileSize > 10 * 1024 * 1024) { // Limite de 10 MB
+      throw Exception('L\'image est trop volumineuse (max 10 MB)');
+    }
+    
+    final String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+    final String storagePath = 'event_images/$fileName.jpg';
+    final Reference ref = _storage.ref().child(storagePath);
+    
+    print('Tentative d\'upload vers: $storagePath');
+    
+    // Upload avec progression
+    final UploadTask uploadTask = ref.putFile(_selectedImage!);
+    
+    // Écouter la progression (optionnel)
+    uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+      print('Progression: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
+    });
+    
+    // Attendre la fin de l'upload
+    final TaskSnapshot snapshot = await uploadTask;
+    
+    // Vérifier que l'upload a réussi
+    if (snapshot.state != TaskState.success) {
+      throw Exception('Échec du téléchargement: ${snapshot.state}');
+    }
+    
+    print('Upload terminé avec succès, récupération de l\'URL...');
+    
+    // Récupérer l'URL de téléchargement
+    final String downloadUrl = await ref.getDownloadURL();
+    print('URL obtenue: $downloadUrl');
+    
+    setState(() {
+      _imageUrl = downloadUrl;
+      _isUploadingImage = false;
+    });
+    
+    return downloadUrl;
+    
+  } on FirebaseException catch (e) {
+    print('FirebaseException - Code: ${e.code}, Message: ${e.message}');
+    
+    String errorMessage;
+    switch (e.code) {
+      case 'storage/object-not-found':
+        errorMessage = 'Le bucket Firebase Storage n\'est pas configuré correctement. Vérifiez votre console Firebase.';
+        break;
+      case 'storage/unauthorized':
+        errorMessage = 'Non autorisé à télécharger. Vérifiez les règles de sécurité.';
+        break;
+      case 'storage/canceled':
+        errorMessage = 'Téléchargement annulé.';
+        break;
+      case 'storage/unknown':
+        errorMessage = 'Erreur inconnue. Vérifiez votre connexion internet.';
+        break;
+      default:
+        errorMessage = 'Erreur Firebase: ${e.message}';
+    }
+    
+    setState(() {
+      _isUploadingImage = false;
+    });
+    _showErrorSnackBar(errorMessage);
+    return null;
+    
+  } catch (e) {
+    print('Erreur générale: $e');
+    setState(() {
+      _isUploadingImage = false;
+    });
+    _showErrorSnackBar('Erreur: $e');
+    return null;
+  }
+}
+  void _showImagePickerDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildModalOption(
+              icon: Icons.photo_library_rounded,
+              title: 'Choisir depuis la galerie',
+              color: midnightBlue,
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            _buildModalOption(
+              icon: Icons.camera_alt_rounded,
+              title: 'Prendre une photo',
+              color: midnightBlue,
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            if (_selectedImage != null)
+              _buildModalOption(
+                icon: Icons.delete_rounded,
+                title: 'Supprimer l\'image',
+                color: error,
+                isDestructive: true,
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _selectedImage = null;
+                    _imageUrl = null;
+                  });
+                },
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModalOption({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 24),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? error : textPrimary,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -83,7 +303,7 @@ class _CreateEventPageState extends State<CreateEventPage>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF6366F1),
+              primary: midnightBlue,
               onPrimary: Colors.white,
               surface: Colors.white,
             ),
@@ -107,7 +327,7 @@ class _CreateEventPageState extends State<CreateEventPage>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF6366F1),
+              primary: midnightBlue,
               onPrimary: Colors.white,
             ),
           ),
@@ -122,19 +342,28 @@ class _CreateEventPageState extends State<CreateEventPage>
     }
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedDate == null) {
-        _showErrorSnackBar('Please select a date');
+        _showErrorSnackBar('Veuillez sélectionner une date');
         return;
       }
 
       if (_selectedTime == null) {
-        _showErrorSnackBar('Please select a time');
+        _showErrorSnackBar('Veuillez sélectionner une heure');
         return;
       }
 
-      _createEvent();
+      String? finalImageUrl = _imageUrl;
+      if (_selectedImage != null && _imageUrl == null) {
+        finalImageUrl = await _uploadImage();
+        if (finalImageUrl == null) {
+          _showErrorSnackBar('Erreur lors du téléchargement de l\'image');
+          return;
+        }
+      }
+
+      _createEvent(finalImageUrl);
     }
   }
 
@@ -142,7 +371,7 @@ class _CreateEventPageState extends State<CreateEventPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xFFEF4444),
+        backgroundColor: error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -151,7 +380,7 @@ class _CreateEventPageState extends State<CreateEventPage>
     );
   }
 
-  void _createEvent() async {
+  void _createEvent(String? imageUrl) async {
     setState(() {
       _isLoading = true;
     });
@@ -168,13 +397,14 @@ class _CreateEventPageState extends State<CreateEventPage>
         price: _isFree ? 0.0 : double.parse(_priceController.text),
         latitude: _latitude,
         longitude: _longitude,
+        imageUrl: imageUrl,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Event created successfully!'),
-            backgroundColor: const Color(0xFF10B981),
+            content: const Text('Événement créé avec succès !'),
+            backgroundColor: success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -185,7 +415,7 @@ class _CreateEventPageState extends State<CreateEventPage>
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Error: $e');
+        _showErrorSnackBar('Erreur: $e');
       }
     } finally {
       if (mounted) {
@@ -198,367 +428,482 @@ class _CreateEventPageState extends State<CreateEventPage>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 480;
+    final expandedHeight = isSmallScreen ? 120.0 : 140.0;
+    final headerPadding = isSmallScreen ? 12.0 : 24.0;
+    final headerPaddingTop = isSmallScreen ? 40.0 : 60.0;
+    final titleFontSize = isSmallScreen ? 22.0 : 28.0;
+    final subtitleFontSize = isSmallScreen ? 11.0 : 13.0;
+    final iconSize = isSmallScreen ? 40.0 : 50.0;
+    final contentPadding = isSmallScreen ? 16.0 : 24.0;
+    final contentPaddingBottom = isSmallScreen ? 20.0 : 32.0;
+    final spacingBetweenSections = isSmallScreen ? 16.0 : 20.0;
+    final spacingBetweenFields = isSmallScreen ? 12.0 : 16.0;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      appBar: AppBar(
-        title: const Text(
-          'Create Event',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF1A1A2E),
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        centerTitle: false,
-        toolbarHeight: 100,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF8F9FF),
-                Color(0xFFF0F2FF),
-              ],
+      backgroundColor: cream,
+      body: CustomScrollView(
+        slivers: [
+          // Modern Header
+          SliverAppBar(
+            expandedHeight: expandedHeight,
+            pinned: true,
+            backgroundColor: cream,
+            elevation: 0,
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cream,
+                      creamDark,
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(headerPadding, headerPaddingTop, headerPadding, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: iconSize,
+                              height: iconSize,
+                              decoration: BoxDecoration(
+                                color: midnightBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                Icons.add_rounded,
+                                size: isSmallScreen ? 22 : 28,
+                                color: midnightBlue,
+                              ),
+                            ),
+                            SizedBox(width: isSmallScreen ? 12 : 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Créer un événement',
+                                    style: TextStyle(
+                                      fontSize: titleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: midnightBlue,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Remplissez les informations',
+                                    style: TextStyle(
+                                      fontSize: subtitleFontSize,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isSmallScreen ? 12 : 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.05),
-              end: Offset.zero,
-            ).animate(_fadeAnimation),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header Section
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 24),
+
+          // Form Content
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.05),
+                  end: Offset.zero,
+                ).animate(_fadeAnimation),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(contentPadding, 8, contentPadding, contentPaddingBottom),
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Detail de l\'événement',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Remplissez les informations ci-dessous pour créer votre événement',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        // Image Picker Section
+                        _buildImagePickerSection(isSmallScreen: isSmallScreen),
+                        SizedBox(height: spacingBetweenSections),
 
-                  // Title Field
-                  _buildInputField(
-                    controller: _titleController,
-                    label: 'Nom de l\'événement',
-                    icon: Icons.title,
-                    hint: 'Donnez le nom de l\'événement',
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Le nom de l\'événement est requis';
-                      }
-                      if (value.length < 3) {
-                        return 'Le nom de l\'événement doit comporter au moins 3 caractères';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Category Dropdown
-                  _buildDropdownField(
-                    value: _selectedCategory,
-                    label: 'Catégorie',
-                    icon: Icons.category,
-                    items: categories,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCategory = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Description Field
-                  _buildInputField(
-                    controller: _descriptionController,
-                    label: 'Description',
-                    icon: Icons.description,
-                    hint: 'Décrivez ce que les participants peuvent attendre de votre événement',
-                    maxLines: 4,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Description attendue';
-                      }
-                      if (value.length < 10) {
-                        return 'Description doit comporter au moins 10 caractères';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Location Field with Place Picker
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLocationField(),
-                      if (_latitude != null && _longitude != null)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12, top: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 12,
-                                  color: const Color(0xFF6366F1),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Coordinates: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Date and Time Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDatePickerField(),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTimePickerField(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Capacity Field
-                  _buildInputField(
-                    controller: _capacityController,
-                    label: 'Capacité',
-                    icon: Icons.people,
-                    hint: 'Nombre de places disponibles',
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'La capacité est requise';
-                      }
-                      if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                        return 'Entrez un nombre valide supérieur à 0';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Price Section
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      const Color(0xFF6366F1).withOpacity(0.1),
-                                      const Color(0xFF8B5CF6).withOpacity(0.1),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _isFree ? Icons.celebration : Icons.attach_money,
-                                  color: const Color(0xFF6366F1),
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Événement Gratuit',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[800],
-                                  ),
-                                ),
-                              ),
-                              Switch(
-                                value: _isFree,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _isFree = value;
-                                    if (_isFree) {
-                                      _priceController.clear();
-                                    }
-                                  });
-                                },
-                                activeColor: const Color(0xFF6366F1),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (!_isFree)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: _buildInputField(
-                              controller: _priceController,
-                              label: 'Prix',
-                              icon: Icons.attach_money,
-                              
-                              prefixText: 'TND ',
-                              keyboardType: TextInputType.number,
+                        // Basic Info Card
+                        _buildSectionCard(
+                          title: 'Informations de base',
+                          icon: Icons.info_outline_rounded,
+                          isSmallScreen: isSmallScreen,
+                          children: [
+                            _buildModernInputField(
+                              controller: _titleController,
+                              label: 'Nom de l\'événement',
+                              hint: 'Donnez un nom',
+                              icon: Icons.title_rounded,
+                              isSmallScreen: isSmallScreen,
                               validator: (value) {
-                                if (!_isFree &&
-                                    (value == null || value.isEmpty)) {
-                                  return 'Le prix est requis pour les événements payants';
+                                if (value == null || value.isEmpty) {
+                                  return 'Le nom de l\'événement est requis';
                                 }
-                                if (value != null &&
-                                    value.isNotEmpty &&
-                                    double.tryParse(value) == null) {
-                                  return 'Entrez un prix valide';
+                                if (value.length < 3) {
+                                  return 'Le nom doit comporter au moins 3 caractères';
                                 }
                                 return null;
                               },
                             ),
-                          ),
+                            SizedBox(height: spacingBetweenFields),
+                            _buildModernDropdownField(
+                              value: _selectedCategory,
+                              label: 'Catégorie',
+                              icon: Icons.category_rounded,
+                              items: categories,
+                              isSmallScreen: isSmallScreen,
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedCategory = value;
+                                });
+                              },
+                            ),
+                            SizedBox(height: spacingBetweenFields),
+                            _buildModernInputField(
+                              controller: _descriptionController,
+                              label: 'Description',
+                              hint: 'Décrivez l\'événement',
+                              icon: Icons.description_rounded,
+                              maxLines: 4,
+                              isSmallScreen: isSmallScreen,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'La description est requise';
+                                }
+                                if (value.length < 10) {
+                                  return 'La description doit comporter au moins 10 caractères';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+
+                        SizedBox(height: spacingBetweenSections),
+
+                        // Location Card
+                        _buildSectionCard(
+                          title: 'Lieu',
+                          icon: Icons.location_on_rounded,
+                          isSmallScreen: isSmallScreen,
+                          children: [
+                            _buildLocationField(),
+                            if (_latitude != null && _longitude != null)
+                              Padding(
+                                padding: EdgeInsets.only(top: isSmallScreen ? 8 : 12),
+                                child: Container(
+                                  padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+                                  decoration: BoxDecoration(
+                                    color: midnightBlue.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.map_rounded,
+                                        size: isSmallScreen ? 14 : 16,
+                                        color: midnightBlue,
+                                      ),
+                                      SizedBox(width: isSmallScreen ? 6 : 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Coordonnées: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: midnightBlue.withOpacity(0.7),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Date & Time Card
+                        _buildSectionCard(
+                          title: 'Date et heure',
+                          icon: Icons.calendar_today_rounded,
+                          isSmallScreen: isSmallScreen,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDatePickerField(),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTimePickerField(),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Capacity & Price Card
+                        _buildSectionCard(
+                          title: 'Capacité et tarification',
+                          icon: Icons.people_rounded,
+                          isSmallScreen: isSmallScreen,
+                          children: [
+                            _buildModernInputField(
+                              controller: _capacityController,
+                              label: 'Capacité',
+                              hint: 'Nombre de places disponibles',
+                              icon: Icons.people_rounded,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'La capacité est requise';
+                                }
+                                if (int.tryParse(value) == null || int.parse(value) <= 0) {
+                                  return 'Entrez un nombre valide supérieur à 0';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: cream,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: midnightBlue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      _isFree ? Icons.celebration_rounded : Icons.attach_money_rounded,
+                                      color: midnightBlue,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Événement gratuit',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: midnightBlue,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Cochez pour un événement gratuit',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: _isFree,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _isFree = value;
+                                        if (_isFree) {
+                                          _priceController.clear();
+                                        }
+                                      });
+                                    },
+                                    activeColor: midnightBlue,
+                                    inactiveThumbColor: Colors.grey[400],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!_isFree)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: _buildModernInputField(
+                                  controller: _priceController,
+                                  label: 'Prix',
+                                  hint: 'Prix par personne',
+                                  icon: Icons.attach_money_rounded,
+                                  prefixText: 'TND ',
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (!_isFree &&
+                                        (value == null || value.isEmpty)) {
+                                      return 'Le prix est requis pour les événements payants';
+                                    }
+                                    if (value != null &&
+                                        value.isNotEmpty &&
+                                        double.tryParse(value) == null) {
+                                      return 'Entrez un prix valide';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Action Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  side: BorderSide(
+                                    color: midnightBlue.withOpacity(0.3),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Annuler',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: midnightBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: (_isLoading || _isUploadingImage) ? null : _submitForm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: midnightBlue,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _isLoading || _isUploadingImage
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Créer l\'événement',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: cream,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            side: BorderSide(
-                              color: Colors.grey[300]!,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Text(
-                            'Annuler',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor:
-                                        AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              : const Text(
-                                  'Créer l\'événement',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildInputField({
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    bool isSmallScreen = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: isSmallScreen ? 32 : 36,
+                height: isSmallScreen ? 32 : 36,
+                decoration: BoxDecoration(
+                  color: midnightBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
+              ),
+              SizedBox(width: isSmallScreen ? 10 : 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 16 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: midnightBlue,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isSmallScreen ? 16 : 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernInputField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -567,101 +912,107 @@ class _CreateEventPageState extends State<CreateEventPage>
     TextInputType keyboardType = TextInputType.text,
     String? prefixText,
     String? Function(String?)? validator,
+    bool isSmallScreen = false,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: cream,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
         keyboardType: keyboardType,
         validator: validator,
+        style: TextStyle(
+          fontSize: isSmallScreen ? 13 : 15,
+          color: textPrimary,
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            color: midnightBlue.withOpacity(0.6),
+            fontWeight: FontWeight.w500,
+            fontSize: isSmallScreen ? 12 : 13,
+          ),
           hintText: hint,
-          prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+          hintStyle: TextStyle(
+            color: textSecondary.withOpacity(0.6),
+            fontSize: isSmallScreen ? 12 : 13,
+          ),
+          prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
           prefixText: prefixText,
           prefixStyle: TextStyle(
-            color: Colors.grey[600],
+            color: midnightBlue,
             fontWeight: FontWeight.w500,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: midnightBlue, width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: error, width: 1),
           ),
           filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          fillColor: cream,
+          contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 14 : 16),
         ),
       ),
     );
   }
 
-  Widget _buildDropdownField({
+  Widget _buildModernDropdownField({
     required String value,
     required String label,
     required IconData icon,
     required List<String> items,
     required Function(String) onChanged,
+    bool isSmallScreen = false,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: cream,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: DropdownButtonFormField<String>(
         value: value,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+          labelStyle: TextStyle(
+            color: midnightBlue.withOpacity(0.6),
+            fontWeight: FontWeight.w500,
+            fontSize: isSmallScreen ? 12 : 13,
+          ),
+          prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: midnightBlue, width: 1.5),
           ),
           filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          fillColor: cream,
+          contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 12 : 14),
         ),
         items: items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
-            child: Text(item),
+            child: Text(item, style: TextStyle(fontSize: isSmallScreen ? 13 : 15)),
           );
         }).toList(),
         onChanged: (newValue) {
@@ -669,7 +1020,7 @@ class _CreateEventPageState extends State<CreateEventPage>
             onChanged(newValue);
           }
         },
-        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6366F1)),
+        icon: Icon(Icons.arrow_drop_down_rounded, color: midnightBlue),
         dropdownColor: Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
@@ -694,68 +1045,85 @@ class _CreateEventPageState extends State<CreateEventPage>
           setState(() {
             _latitude = result['latitude'];
             _longitude = result['longitude'];
-            _locationController.text = result['nom du lieu'];
+            _locationController.text = result['location_name'];
           });
         }
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: cream,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: TextFormField(
           controller: _locationController,
           readOnly: true,
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PlacePickerPage(
+                  initialLat: _latitude,
+                  initialLng: _longitude,
+                  initialLocationName: _locationController.text,
+                ),
+              ),
+            );
+
+            if (result != null) {
+              setState(() {
+                _latitude = result['latitude'];
+                _longitude = result['longitude'];
+                _locationController.text = result['location_name'];
+              });
+            }
+          },
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'La localisation est requise';
+              return 'Le lieu est requis';
             }
             return null;
           },
+          style: TextStyle(
+            fontSize: 15,
+            color: textPrimary,
+          ),
           decoration: InputDecoration(
             labelText: 'Lieu',
-            hintText: 'cliquez pour choisir un lieu',
-            prefixIcon: const Icon(Icons.location_on, color: Color(0xFF6366F1), size: 20),
+            labelStyle: TextStyle(
+              color: midnightBlue.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            hintText: 'Cliquez pour choisir un lieu sur la carte',
+            hintStyle: TextStyle(
+              color: textSecondary.withOpacity(0.6),
+            ),
+            prefixIcon: Icon(Icons.location_on_rounded, color: midnightBlue, size: 20),
             suffixIcon: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF6366F1),
-                    const Color(0xFF8B5CF6),
-                  ],
-                ),
+                color: midnightBlue,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
-                Icons.arrow_forward,
+                Icons.map_rounded,
                 color: Colors.white,
                 size: 18,
               ),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
-              borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: midnightBlue, width: 1.5),
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: cream,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
         ),
@@ -763,40 +1131,170 @@ class _CreateEventPageState extends State<CreateEventPage>
     );
   }
 
+Widget _buildImagePickerSection({bool isSmallScreen = false}) {
+  return GestureDetector(
+    onTap: _showImagePickerDialog,
+    child: Container(
+      height: 200,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: _selectedImage != null || _imageUrl != null
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: _selectedImage != null
+                      ? Image.file(
+                          _selectedImage!,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.network(
+                          _imageUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.5),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      color: midnightBlue,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                if (_isUploadingImage)
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: midnightBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.add_photo_alternate_rounded,
+                    size: 48,
+                    color: midnightBlue,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Ajouter une photo',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: midnightBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '(optionnel)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cliquez pour choisir une image',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textSecondary,
+                  ),
+                ),
+              ],
+            ),
+    ),
+  );
+}
+
   Widget _buildDatePickerField() {
     return GestureDetector(
       onTap: _selectDate,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: cream,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: 'Date',
-            prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF6366F1), size: 20),
+            labelStyle: TextStyle(
+              color: midnightBlue.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: Icon(Icons.calendar_today_rounded, color: midnightBlue, size: 20),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: cream,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
           child: Text(
             _selectedDate != null
-                ? DateFormat('dd MMM yyyy').format(_selectedDate!)
+                ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
                 : 'Choisissez une date',
             style: TextStyle(
-              fontSize: 16,
-              color: _selectedDate != null ? Colors.grey[800] : Colors.grey[500],
+              fontSize: 15,
+              color: _selectedDate != null ? textPrimary : textSecondary,
               fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
             ),
           ),
@@ -810,26 +1308,23 @@ class _CreateEventPageState extends State<CreateEventPage>
       onTap: _selectTime,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: cream,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: InputDecorator(
           decoration: InputDecoration(
-            labelText: 'Temps',
-            prefixIcon: const Icon(Icons.access_time, color: Color(0xFF6366F1), size: 20),
+            labelText: 'Heure',
+            labelStyle: TextStyle(
+              color: midnightBlue.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: Icon(Icons.access_time_rounded, color: midnightBlue, size: 20),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: cream,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
           child: Text(
@@ -837,8 +1332,8 @@ class _CreateEventPageState extends State<CreateEventPage>
                 ? _selectedTime!.format(context)
                 : 'Choisissez une heure',
             style: TextStyle(
-              fontSize: 16,
-              color: _selectedTime != null ? Colors.grey[800] : Colors.grey[500],
+              fontSize: 15,
+              color: _selectedTime != null ? textPrimary : textSecondary,
               fontWeight: _selectedTime != null ? FontWeight.w500 : FontWeight.normal,
             ),
           ),

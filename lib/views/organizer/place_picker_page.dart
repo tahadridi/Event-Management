@@ -6,6 +6,27 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 
+// ─────────────────────────────────────────────────────────────
+// DESIGN SYSTEM - Midnight Blue & White Theme
+// ─────────────────────────────────────────────────────────────
+
+class PlacePickerTheme {
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textHint = Color(0xFF9CA3AF);
+  static const Color error = Color(0xFFEF4444);
+  
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [midnightBlue, midnightBlueLight],
+  );
+}
+
 class PlacePickerPage extends StatefulWidget {
   final double? initialLat;
   final double? initialLng;
@@ -55,7 +76,6 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
     super.dispose();
   }
 
-  // ── Auto reverse-geocode when user taps the map ──────────────────────────
   Future<void> _onMapTapped(LatLng latLng) async {
     setState(() {
       _latitude = latLng.latitude;
@@ -94,7 +114,6 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
   String _coordinatesText() =>
       '${_latitude.toStringAsFixed(5)}, ${_longitude.toStringAsFixed(5)}';
 
-  // ── Search with debounce (waits 500 ms after user stops typing) ──────────
   void _onSearchChanged(String query) {
     _debounce?.cancel();
     if (query.trim().isEmpty) {
@@ -149,7 +168,6 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
     _mapController.move(LatLng(_latitude, _longitude), 16);
   }
 
-  // ── Get current GPS position ─────────────────────────────────────────────
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLocation = true);
     try {
@@ -157,21 +175,64 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
       }
-      if (perm == LocationPermission.whileInUse ||
+      
+      if (perm == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('La permission de localisation est requise. Veuillez l\'activer dans les paramètres.'),
+              backgroundColor: PlacePickerTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+        await Geolocator.openAppSettings();
+      } else if (perm == LocationPermission.whileInUse ||
           perm == LocationPermission.always) {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
-        _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
-        await _onMapTapped(LatLng(pos.latitude, pos.longitude));
+        if (mounted) {
+          _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
+          await _onMapTapped(LatLng(pos.latitude, pos.longitude));
+        }
+      } else if (perm == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Permission de localisation requise'),
+              backgroundColor: PlacePickerTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
       }
-    } catch (_) {
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: PlacePickerTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
     } finally {
-      setState(() => _isLoadingLocation = false);
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
     }
   }
 
-  // ── Confirm and return data ───────────────────────────────────────────────
   void _confirmLocation() {
     Navigator.pop(context, {
       'latitude': _latitude,
@@ -180,13 +241,12 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // ── Full-screen map ──────────────────────────────────────────────
+          // Full-screen map
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -196,9 +256,17 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'EventProject/1.0',
+              ),
+              const RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: null,
+                  ),
+                ],
+                alignment: AttributionAlignment.bottomRight,
               ),
               MarkerLayer(
                 markers: [
@@ -208,7 +276,7 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
                     height: 48,
                     child: const Icon(
                       Icons.location_pin,
-                      color: Colors.deepPurple,
+                      color: PlacePickerTheme.midnightBlue,
                       size: 48,
                     ),
                   ),
@@ -217,51 +285,80 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
             ],
           ),
 
-          // ── Top search bar ───────────────────────────────────────────────
+          // Top search bar
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Text(
+                    'Choisir un lieu',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: PlacePickerTheme.midnightBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   // Search field
                   Material(
                     elevation: 4,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(20),
+                    shadowColor: PlacePickerTheme.midnightBlue.withOpacity(0.1),
                     child: TextField(
                       controller: _searchController,
                       onChanged: _onSearchChanged,
+                      style: const TextStyle(fontSize: 16),
                       decoration: InputDecoration(
                         hintText: 'Rechercher un lieu...',
-                        prefixIcon: const Icon(Icons.search,
-                            color: Colors.deepPurple),
+                        hintStyle: TextStyle(
+                          color: PlacePickerTheme.textHint,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: PlacePickerTheme.midnightBlue,
+                        ),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.close),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: PlacePickerTheme.textHint,
+                                ),
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() => _searchResults = []);
                                 },
                               )
                             : _isSearching
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12),
+                                ? Padding(
+                                    padding: const EdgeInsets.all(12),
                                     child: SizedBox(
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          PlacePickerTheme.midnightBlue,
+                                        ),
+                                      ),
                                     ),
                                   )
                                 : null,
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: PlacePickerTheme.white,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(20),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: PlacePickerTheme.midnightBlue,
+                            width: 1.5,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                       ),
                     ),
                   ),
@@ -270,32 +367,45 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
                   if (_searchResults.isNotEmpty)
                     Material(
                       elevation: 4,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            maxHeight:
-                                MediaQuery.of(context).size.height * 0.32,
+                            maxHeight: MediaQuery.of(context).size.height * 0.35,
                           ),
                           child: ListView.separated(
                             shrinkWrap: true,
                             padding: EdgeInsets.zero,
                             itemCount: _searchResults.length,
-                            separatorBuilder: (_, __) => const Divider(
-                                height: 1, indent: 16, endIndent: 16),
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: PlacePickerTheme.textHint.withOpacity(0.2),
+                            ),
                             itemBuilder: (context, i) {
                               final place = _searchResults[i];
                               return ListTile(
-                                leading: const Icon(
-                                  Icons.place_outlined,
-                                  color: Colors.deepPurple,
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: PlacePickerTheme.midnightBlue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.place_rounded,
+                                    color: PlacePickerTheme.midnightBlue,
+                                    size: 20,
+                                  ),
                                 ),
                                 title: Text(
                                   place.name,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: PlacePickerTheme.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                                 onTap: () => _selectResult(place),
                               );
@@ -309,25 +419,24 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
             ),
           ),
 
-          // ── Bottom card (address + buttons) ─────────────────────────────
+          // Bottom card (address + buttons)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                color: PlacePickerTheme.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    blurRadius: 16,
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,63 +447,104 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: PlacePickerTheme.textHint.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 20),
 
                   // Address row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on,
-                          color: Colors.deepPurple, size: 22),
-                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: PlacePickerTheme.midnightBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.location_on_rounded,
+                          color: PlacePickerTheme.midnightBlue,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: _isLoadingAddress
-                            ? const Text('Chargement...',
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 14))
+                            ? Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        PlacePickerTheme.midnightBlue,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Chargement...',
+                                    style: TextStyle(
+                                      color: PlacePickerTheme.textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              )
                             : Text(
                                 _address,
-                                style: const TextStyle(
-                                    fontSize: 14, height: 1.4),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  height: 1.4,
+                                  color: PlacePickerTheme.textPrimary,
+                                ),
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 24),
 
                   // Buttons row
                   Row(
                     children: [
                       // My location button
                       OutlinedButton.icon(
-                        onPressed: _isLoadingLocation
-                            ? null
-                            : _getCurrentLocation,
+                        onPressed: _isLoadingLocation ? null : _getCurrentLocation,
                         icon: _isLoadingLocation
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    PlacePickerTheme.midnightBlue,
+                                  ),
+                                ),
                               )
-                            : const Icon(Icons.my_location,
-                                color: Colors.deepPurple),
-                        label: const Text('Ma position',
-                            style: TextStyle(color: Colors.deepPurple)),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.deepPurple),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            : Icon(
+                                Icons.my_location_rounded,
+                                color: PlacePickerTheme.midnightBlue,
+                                size: 18,
+                              ),
+                        label: Text(
+                          'Ma position',
+                          style: TextStyle(
+                            color: PlacePickerTheme.midnightBlue,
+                            fontWeight: FontWeight.w600,
                           ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: PlacePickerTheme.midnightBlue, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -403,15 +553,19 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _confirmLocation,
-                          icon: const Icon(Icons.check),
-                          label: const Text('Confirmer ce lieu'),
+                          icon: const Icon(Icons.check_rounded, size: 20),
+                          label: const Text(
+                            'Confirmer ce lieu',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple,
+                            backgroundColor: PlacePickerTheme.midnightBlue,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 0,
                           ),
                         ),
                       ),
@@ -427,7 +581,7 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
   }
 }
 
-// ── Simple data class ────────────────────────────────────────────────────────
+// Simple data class
 class _PlaceResult {
   final String name;
   final double latitude;

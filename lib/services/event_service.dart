@@ -39,57 +39,56 @@ class EventService {
   }
 
   // Créer un nouvel événement
-  Future<void> createEvent({
-    required String title,
-    required String description,
-    required String category,
-    required String location,
-    required DateTime date,
-    required TimeOfDay time,
-    required int totalPlaces,
-    required double price,
-    double? latitude,
-    double? longitude,
-  }) async {
-    try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('Utilisateur non authentifié');
-      }
-
-      // Combiner la date et l'heure
-      final DateTime eventDateTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-
-      // Récupérer les informations de l'organisateur
-      final userDoc = await _db.collection('users').doc(currentUser.uid).get();
-      final organizerName = userDoc.data()?['name'] ?? 'Organisateur';
-
-      // Créer l'événement
-      await _db.collection('events').add({
-        'title': title,
-        'description': description,
-        'category': category,
-        'location': location,
-        'latitude': latitude ?? 0.0,
-        'longitude': longitude ?? 0.0,
-        'date': Timestamp.fromDate(eventDateTime),
-        'totalPlaces': totalPlaces,
-        'availablePlaces': totalPlaces,
-        'price': price,
-        'organizerId': currentUser.uid,
-        'organizerName': organizerName,
-        'createdAt': Timestamp.now(),
-      });
-    } catch (e) {
-      throw Exception('Erreur lors de la création de l\'événement: $e');
+Future<void> createEvent({
+  required String title,
+  required String description,
+  required String category,
+  required String location,
+  required DateTime date,
+  required TimeOfDay time,
+  required int totalPlaces,
+  required double price,
+  double? latitude,
+  double? longitude,
+  String? imageUrl, // Add this parameter
+}) async {
+  try {
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Utilisateur non authentifié');
     }
+
+    final DateTime eventDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+
+    final userDoc = await _db.collection('users').doc(currentUser.uid).get();
+    final organizerName = userDoc.data()?['name'] ?? 'Organisateur';
+
+    await _db.collection('events').add({
+      'title': title,
+      'description': description,
+      'category': category,
+      'location': location,
+      'latitude': latitude ?? 0.0,
+      'longitude': longitude ?? 0.0,
+      'date': Timestamp.fromDate(eventDateTime),
+      'totalPlaces': totalPlaces,
+      'availablePlaces': totalPlaces,
+      'price': price,
+      'organizerId': currentUser.uid,
+      'organizerName': organizerName,
+      'createdAt': Timestamp.now(),
+      'imageUrl': imageUrl ?? '', 
+    });
+  } catch (e) {
+    throw Exception('Erreur lors de la création de l\'événement: $e');
   }
+}
 
   // Récupérer les événements créés par l'organisateur actuel
   Stream<List<EventModel>> getOrganizerEvents() {

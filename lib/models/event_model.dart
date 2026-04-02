@@ -14,6 +14,7 @@ class EventModel {
   final double price;
   final String organizerId;
   final String organizerName;
+  final String? imageUrl;
 
   EventModel({
     required this.id,
@@ -29,6 +30,7 @@ class EventModel {
     required this.price,
     required this.organizerId,
     required this.organizerName,
+    this.imageUrl,
   });
 
   // Convertir Firestore → EventModel
@@ -48,6 +50,7 @@ class EventModel {
       price: (data['price'] ?? 0).toDouble(),
       organizerId: data['organizerId'] ?? '',
       organizerName: data['organizerName'] ?? '',
+      imageUrl: data['imageUrl'] as String?,
     );
   }
 
@@ -66,6 +69,7 @@ class EventModel {
       'price': price,
       'organizerId': organizerId,
       'organizerName': organizerName,
+      'imageUrl': imageUrl,
     };
   }
 

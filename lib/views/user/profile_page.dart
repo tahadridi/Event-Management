@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
 import '../auth/login_page.dart';
 
+
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({Key? key}) : super(key: key);
 
@@ -25,6 +26,15 @@ class _UserProfilePageState extends State<UserProfilePage>
   bool _isSaving = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+
+  // Color palette - Midnight Blue & Cream
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF0F2A6B);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFE8E0D4);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
 
   @override
   void initState() {
@@ -54,7 +64,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+        backgroundColor: isError ? accent : midnightBlue,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -101,17 +111,19 @@ class _UserProfilePageState extends State<UserProfilePage>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
+        backgroundColor: Colors.white,
         title: const Text(
           'Déconnexion',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
+            color: textPrimary,
           ),
         ),
         content: Text(
           'Êtes-vous sûr de vouloir vous déconnecter ?',
           style: TextStyle(
-            color: Colors.grey[600],
+            color: textSecondary,
           ),
         ),
         actions: [
@@ -120,7 +132,7 @@ class _UserProfilePageState extends State<UserProfilePage>
             child: Text(
               'Annuler',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -128,7 +140,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: accent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -165,14 +177,14 @@ class _UserProfilePageState extends State<UserProfilePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
+      backgroundColor: cream,
       body: StreamBuilder<UserModel?>(
         stream: _userService.getCurrentUserStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                valueColor: AlwaysStoppedAnimation<Color>(midnightBlue),
               ),
             );
           }
@@ -185,13 +197,13 @@ class _UserProfilePageState extends State<UserProfilePage>
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withOpacity(0.1),
+                      color: midnightBlue.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.person_off_outlined,
                       size: 80,
-                      color: Color(0xFF6366F1),
+                      color: midnightBlue,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -200,7 +212,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
+                      color: textPrimary,
                     ),
                   ),
                 ],
@@ -220,11 +232,11 @@ class _UserProfilePageState extends State<UserProfilePage>
 
           return CustomScrollView(
             slivers: [
-              // Modern Header
+              // Modern Header with Midnight Blue
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: midnightBlue,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -234,13 +246,13 @@ class _UserProfilePageState extends State<UserProfilePage>
                     children: [
                       // Background Gradient
                       Container(
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Color(0xFF6366F1),
-                              Color(0xFF8B5CF6),
+                              midnightBlue,
+                              midnightBlueLight,
                             ],
                           ),
                         ),
@@ -253,7 +265,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8F9FF),
+                            color: cream,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(30),
                               topRight: Radius.circular(30),
@@ -408,7 +420,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                 title: 'Membre depuis',
                 value: _getMemberSince(user.createdAt),
                 icon: Icons.calendar_today,
-                color: const Color(0xFF6366F1),
+                color: midnightBlue,
               ),
             ),
             const SizedBox(width: 12),
@@ -417,7 +429,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                 title: 'Rôle',
                 value: user.role == 'organizer' ? 'Organisateur' : 'Participant',
                 icon: user.role == 'organizer' ? Icons.verified : Icons.person,
-                color: const Color(0xFF8B5CF6),
+                color: accent,
               ),
             ),
           ],
@@ -430,7 +442,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: textPrimary,
             letterSpacing: -0.5,
           ),
         ),
@@ -465,7 +477,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: textPrimary,
             letterSpacing: -0.5,
           ),
         ),
@@ -476,7 +488,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           icon: Icons.edit_outlined,
           label: 'Modifier le profil',
           subtitle: 'Mettre à jour vos informations',
-          color: const Color(0xFF6366F1),
+          color: midnightBlue,
           onTap: () => setState(() => _isEditing = true),
         ),
         const SizedBox(height: 8),
@@ -486,7 +498,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           icon: Icons.logout,
           label: 'Déconnexion',
           subtitle: 'Quitter votre compte',
-          color: const Color(0xFFEF4444),
+          color: accent,
           onTap: _logout,
           isDestructive: true,
         ),
@@ -498,7 +510,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           child: Text(
             'Reservi Events v1.0',
             style: TextStyle(
-              color: Colors.grey[400],
+              color: textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -518,19 +530,19 @@ class _UserProfilePageState extends State<UserProfilePage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.1),
-            color.withOpacity(0.05),
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: color.withOpacity(0.2),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -549,7 +561,7 @@ class _UserProfilePageState extends State<UserProfilePage>
             title,
             style: TextStyle(
               fontSize: 11,
-              color: Colors.grey[600],
+              color: textSecondary,
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
@@ -585,10 +597,10 @@ class _UserProfilePageState extends State<UserProfilePage>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.1),
+              color: midnightBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF6366F1), size: 22),
+            child: Icon(icon, color: midnightBlue, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -599,7 +611,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    color: textSecondary,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
@@ -611,8 +623,8 @@ class _UserProfilePageState extends State<UserProfilePage>
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: value.contains('Non renseigné') || value.contains('Aucune')
-                        ? Colors.grey[400]
-                        : const Color(0xFF1A1A2E),
+                        ? textSecondary
+                        : textPrimary,
                     fontStyle: value.contains('Non renseigné') || value.contains('Aucune')
                         ? FontStyle.italic
                         : FontStyle.normal,
@@ -643,16 +655,15 @@ class _UserProfilePageState extends State<UserProfilePage>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDestructive 
-              ? const Color(0xFFEF4444).withOpacity(0.2)
-              : Colors.grey[200]!,
+              ? accent.withOpacity(0.2)
+              : midnightBlue.withOpacity(0.1),
           ),
           boxShadow: [
-            if (!isDestructive)
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
@@ -676,7 +687,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: isDestructive ? color : const Color(0xFF1A1A2E),
+                      color: isDestructive ? color : textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -684,7 +695,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[500],
+                      color: textSecondary,
                     ),
                   ),
                 ],
@@ -692,7 +703,7 @@ class _UserProfilePageState extends State<UserProfilePage>
             ),
             Icon(
               Icons.chevron_right,
-              color: Colors.grey[400],
+              color: textSecondary,
               size: 20,
             ),
           ],
@@ -710,7 +721,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A2E),
+            color: textPrimary,
             letterSpacing: -0.5,
           ),
         ),
@@ -719,7 +730,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           'Mettez à jour vos informations personnelles',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.grey[600],
+            color: textSecondary,
           ),
         ),
         const SizedBox(height: 24),
@@ -760,14 +771,14 @@ class _UserProfilePageState extends State<UserProfilePage>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  side: BorderSide(color: Colors.grey[300]!, width: 1.5),
+                  side: BorderSide(color: midnightBlue.withOpacity(0.3), width: 1.5),
                 ),
                 child: Text(
                   'Annuler',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
+                    color: textSecondary,
                   ),
                 ),
               ),
@@ -778,7 +789,7 @@ class _UserProfilePageState extends State<UserProfilePage>
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
+                  backgroundColor: midnightBlue,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -837,7 +848,7 @@ class _UserProfilePageState extends State<UserProfilePage>
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 22),
+          prefixIcon: Icon(icon, color: midnightBlue, size: 22),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -848,7 +859,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+            borderSide: BorderSide(color: midnightBlue, width: 2),
           ),
           filled: true,
           fillColor: Colors.white,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,16 +9,21 @@ import '../../services/user_service.dart';
 import '../../views/reservation/booking_page.dart';
 import '../../widgets/add_review_sheet.dart';
 import '../../widgets/reviews_list.dart';
-
+import 'dart:ui' as ui;
 class EventDetailPage extends StatefulWidget {
   final EventModel event;
-  const EventDetailPage({super.key, required this.event});
+  
+  const EventDetailPage({
+    super.key,
+    required this.event,
+  });
 
   @override
   State<EventDetailPage> createState() => _EventDetailPageState();
 }
 
-class _EventDetailPageState extends State<EventDetailPage> {
+class _EventDetailPageState extends State<EventDetailPage>
+    with TickerProviderStateMixin {
   final ReviewService _reviewService = ReviewService();
   final UserService _userService = UserService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -27,11 +33,57 @@ class _EventDetailPageState extends State<EventDetailPage> {
   int _reviewCount = 0;
   bool _hasReviewed = false;
   bool _initialLoadDone = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late AnimationController _locationScrollController;
+
+  // Color palette - Midnight Blue & Cream
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFE8E0D4);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color accentLight = Color(0xFFF39C12);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textLight = Color(0xFF9CA3AF);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
 
   @override
   void initState() {
     super.initState();
     _loadInitialData();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    _animationController.forward();
+    
+    // Initialize location scroll controller with very slow speed
+    _locationScrollController = AnimationController(
+      duration: const Duration(seconds: 10),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _locationScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -63,17 +115,31 @@ class _EventDetailPageState extends State<EventDetailPage> {
         setState(() => _isFavorite = !_isFavorite);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isFavorite
-                ? 'Ajouté aux favoris'
-                : 'Retiré des favoris'),
-            duration: const Duration(seconds: 1),
+            content: Text(
+              _isFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: _isFavorite ? accent : midnightBlue,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
       }
     }
   }
@@ -100,6 +166,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       useRootNavigator: true,
       builder: (_) => AddReviewSheet(
         eventId: widget.event.id,
@@ -117,8 +184,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
             }
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content: Text('Avis publié avec succès'),
-                  backgroundColor: Colors.green),
+                content: Text('Avis publié avec succès'),
+                backgroundColor: success,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+              ),
             );
           }
         },
@@ -126,561 +198,915 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
   }
 
-  Color get _categoryColor {
-  switch (widget.event.category.toLowerCase()) {
-    case 'concert':
-    case 'musique':
-      return const Color(0xFF7C3AED);
-    case 'Événement sportif':  
-    case 'sport':
-      return const Color(0xFF059669);
-    case 'art':
-    case 'exposition':
-      return const Color(0xFFDB2777);
-    case 'conférence':
-    case 'séminaire':
-      return const Color(0xFF2563EB);
-    case 'atelier':
-      return const Color(0xFFD97706);
-    case 'réunion':
-      return const Color(0xFF8B5CF6);
-    default:
-      return const Color(0xFF6366F1);
-  }
-}
-
-  Color get _statusColor {
-    switch (widget.event.status) {
-      case 'Complet':
-        return Colors.red;
-      case 'En attente':
-        return Colors.orange;
-      default:
-        return Colors.green;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final event = widget.event;
-    final catColor = _categoryColor;
-    final availabilityPercent = event.totalPlaces > 0
-        ? event.availablePlaces / event.totalPlaces
-        : 0.0;
+    final dayFormat = DateFormat('dd').format(event.date);
+    final monthFormat = DateFormat('MMM', 'fr').format(event.date).toUpperCase();
+    final timeFormat = DateFormat('HH:mm', 'fr').format(event.date);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FF),
-      body: CustomScrollView(
-        slivers: [
-          // ── App bar ───────────────────────────────────────────────
-          SliverAppBar(
-            expandedHeight: 220,
-            pinned: true,
-            backgroundColor: catColor,
-            foregroundColor: Colors.white,
-            actions: [
-              IconButton(
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Icon(
-                    _isFavorite
-                        ? Icons.favorite
-                        : Icons.favorite_border,
-                    key: ValueKey(_isFavorite),
-                    color:
-                        _isFavorite ? Colors.red.shade300 : Colors.white,
-                  ),
-                ),
-                onPressed: _toggleFavorite,
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.fromLTRB(16, 0, 60, 16),
-              title: Text(
-                event.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Gradient bg using category color
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          catColor.withOpacity(0.9),
-                          catColor,
-                        ],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                      ),
-                    ),
-                  ),
-                  // Decorative pattern
-                  Positioned(
-                    top: -20,
-                    right: -20,
-                    child: Container(
-                      width: 150,
-                      height: 150,
+      backgroundColor: cream,
+      body: Stack(
+        children: [
+          // Main scrollable content
+          CustomScrollView(
+            slivers: [
+              // Hero image section
+              SliverToBoxAdapter(
+                child: Stack(
+                  children: [
+                    // Hero image with overlay
+                    Container(
+                      height: 420,
+                      width: double.infinity,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.07),
+                          image: (event.imageUrl != null && event.imageUrl!.isNotEmpty)
+                            ? DecorationImage(
+                                image: NetworkImage(event.imageUrl!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        color: midnightBlue.withOpacity(0.3),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 30,
-                    left: -30,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.07),
-                      ),
-                    ),
-                  ),
-                  // Category icon centered
-                  Center(
-                    child: Icon(
-                      _categoryIcon(),
-                      size: 72,
-                      color: Colors.white.withOpacity(0.15),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Quick info strip ─────────────────────────────────
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 16),
-                  child: Row(
-                    children: [
-                      // Category chip
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: catColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(event.category,
-                            style: TextStyle(
-                                color: catColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12)),
-                      ),
-                      const SizedBox(width: 8),
-                      // Status chip
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _statusColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(event.status,
-                            style: TextStyle(
-                                color: _statusColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12)),
-                      ),
-                      const Spacer(),
-                      // Rating
-                      if (_averageRating > 0)
-                        Row(
-                          children: [
-                            const Icon(Icons.star_rounded,
-                                color: Colors.amber, size: 18),
-                            const SizedBox(width: 3),
-                            Text(
-                              _averageRating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14),
+                      child: (event.imageUrl == null || event.imageUrl!.isEmpty)
+                          ? Center(
+                              child: Icon(
+                                _categoryIcon(),
+                                size: 100,
+                                color: midnightBlue.withOpacity(0.2),
+                              ),
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.3),
+                                    cream,
+                                  ],
+                                  stops: const [0.3, 0.6, 1.0],
+                                ),
+                              ),
                             ),
-                            Text(' ($_reviewCount)',
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 12)),
-                          ],
+                    ),
+
+                    // Back button
+                    Positioned(
+                      top: 48,
+                      left: 20,
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: midnightBlue,
+                            size: 22,
+                          ),
                         ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // ── Event info cards ──────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      // Date card
-                      _infoCard(
-                        icon: Icons.calendar_month_outlined,
-                        color: catColor,
-                        title: 'Date & heure',
-                        value: DateFormat('EEEE dd MMMM yyyy • HH:mm',
-                                'fr')
-                            .format(event.date),
                       ),
-                      const SizedBox(height: 10),
-                      // Location card
-                      _infoCard(
-                        icon: Icons.location_on_outlined,
-                        color: catColor,
-                        title: 'Lieu',
-                        value: event.location,
-                      ),
-                      const SizedBox(height: 10),
-                      // Organizer card
-                      _infoCard(
-                        icon: Icons.person_outline,
-                        color: catColor,
-                        title: 'Organisateur',
-                        value: event.organizerName,
-                      ),
-                      const SizedBox(height: 10),
+                    ),
 
-                      // Availability card with progress bar
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                    // Favorite button
+                    Positioned(
+                      top: 48,
+                      right: 20,
+                      child: GestureDetector(
+                        onTap: _toggleFavorite,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            _isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: _isFavorite ? error : midnightBlue,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Category badge
+                    Positioned(
+                      bottom: 140,
+                      left: 20,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          color: midnightBlue,
+                          borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: midnightBlue.withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        catColor.withOpacity(0.1),
-                                    borderRadius:
-                                        BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(Icons.people_outline,
-                                      color: catColor, size: 18),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Disponibilité',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey,
-                                              fontWeight:
-                                                  FontWeight.w600)),
-                                      Text(
-                                        '${event.availablePlaces} / ${event.totalPlaces} places',
-                                        style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight:
-                                                FontWeight.w600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  event.availablePlaces == 0
-                                      ? 'Complet'
-                                      : '${(availabilityPercent * 100).toInt()}%',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: availabilityPercent > 0.5
-                                          ? Colors.green
-                                          : availabilityPercent > 0.2
-                                              ? Colors.orange
-                                              : Colors.red),
+                            Icon(
+                              _categoryIcon(),
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              event.category.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Event title
+                    Positioned(
+                      bottom: 60,
+                      left: 20,
+                      right: 20,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              height: 1.2,
+                              letterSpacing: -0.5,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_rounded,
+                                size: 14,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: _buildScrollingLocation(event.location),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content section
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+
+                          // Stats grid
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: availabilityPercent,
-                                minHeight: 6,
-                                backgroundColor:
-                                    Colors.grey.shade100,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(
-                                  availabilityPercent > 0.5
-                                      ? Colors.green
-                                      : availabilityPercent > 0.2
-                                          ? Colors.orange
-                                          : Colors.red,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.calendar_today_rounded,
+                                    label: 'Date',
+                                    mainValue: dayFormat,
+                                    subValue: monthFormat,
+                                    secondLine: timeFormat,
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Description ───────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Description',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 10),
-                        Text(
-                          event.description,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.7,
-                              color: Color(0xFF555555)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Reviews ───────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Avis des participants',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold)),
-                          if (_averageRating > 0)
-                            Row(
-                              children: List.generate(
-                                5,
-                                (i) => Icon(
-                                  i < _averageRating.round()
-                                      ? Icons.star_rounded
-                                      : Icons.star_outline_rounded,
-                                  size: 16,
-                                  color: Colors.amber,
+                                Container(
+                                  width: 1,
+                                  height: 60,
+                                  color: textLight.withOpacity(0.3),
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (!_initialLoadDone)
-                        const Center(
-                            child: CircularProgressIndicator())
-                      else
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _showAddReviewDialog,
-                            icon: const Icon(Icons.rate_review,
-                                size: 18),
-                            label: Text(_hasReviewed
-                                ? 'Modifier votre avis'
-                                : 'Donner votre avis'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: catColor,
-                              side: BorderSide(color: catColor),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(12)),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.timer_rounded,
+                                    label: 'Heure',
+                                    mainValue: timeFormat.split(':')[0],
+                                    subValue: 'h${timeFormat.split(':')[1]}',
+                                    secondLine: '',
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 60,
+                                  color: textLight.withOpacity(0.3),
+                                ),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.local_offer_rounded,
+                                    label: 'Prix',
+                                    mainValue: event.price == 0
+                                        ? 'Gratuit'
+                                        : event.price.toStringAsFixed(0),
+                                    subValue: event.price == 0 ? '' : 'TND',
+                                    secondLine: '',
+                                    isHighlighted: event.price > 0,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 12),
-                      ReviewsList(eventId: event.id),
-                    ],
+
+                          const SizedBox(height: 20),
+
+                          // Capacity indicator
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: midnightBlue.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Icon(
+                                        Icons.event_seat_rounded,
+                                        color: midnightBlue,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Places disponibles',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: textSecondary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${event.availablePlaces} places',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: event.availablePlaces > 10
+                                                  ? success
+                                                  : event.availablePlaces > 0
+                                                      ? accent
+                                                      : error,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (event.availablePlaces > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: event.availablePlaces > 10
+                                              ? success.withOpacity(0.1)
+                                              : accent.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          event.availablePlaces > 10
+                                              ? 'Disponible'
+                                              : 'Dernières places',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: event.availablePlaces > 10
+                                                ? success
+                                                : accent,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: LinearProgressIndicator(
+                                    value: (event.totalPlaces -
+                                            event.availablePlaces) /
+                                        event.totalPlaces,
+                                    minHeight: 8,
+                                    backgroundColor:
+                                        textLight.withOpacity(0.2),
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(
+                                      event.availablePlaces > 10
+                                          ? success
+                                          : event.availablePlaces > 0
+                                              ? accent
+                                              : error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Description section
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 4,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: midnightBlue,
+                                        borderRadius:
+                                            BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'À propos',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  event.description,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.6,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // Rating and reviews section
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 4,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: midnightBlue,
+                                        borderRadius:
+                                            BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'Avis',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (_averageRating > 0) ...[
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        size: 20,
+                                        color: Color(0xFFFFB800),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _averageRating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFFFB800),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '($_reviewCount)',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _showAddReviewDialog,
+                                    icon: Icon(
+                                      _hasReviewed
+                                          ? Icons.edit_rounded
+                                          : Icons.rate_review_rounded,
+                                      size: 18,
+                                      color: midnightBlue,
+                                    ),
+                                    label: Text(
+                                      _hasReviewed
+                                          ? 'Modifier votre avis'
+                                          : 'Donner votre avis',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: midnightBlue,
+                                      side: BorderSide(
+                                        color: midnightBlue.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                ReviewsList(eventId: event.id),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 120),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
+              ),
+            ],
+          ),
 
-                // ── Bottom spacing for the sticky button ──────────────
-                const SizedBox(height: 100),
-              ],
+          // Beautiful Booking Button
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    cream.withOpacity(0),
+                    cream.withOpacity(0.9),
+                    cream,
+                    cream,
+                  ],
+                  stops: const [0, 0.1, 0.3, 1],
+                ),
+              ),
+              child: SafeArea(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  child: event.availablePlaces == 0
+                      ? _buildSoldOutButton()
+                      : _buildBookButton(),
+                ),
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
 
-      // ── Sticky bottom bar: price + reserve ────────────────────────
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
+  Widget _buildBookButton() {
+    final event = widget.event;
+    final isLowStock = event.availablePlaces <= 10;
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: midnightBlue.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BookingPage(event: event),
             ),
-          ],
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: midnightBlue,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          elevation: 0,
         ),
-        child: Row(
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Prix',
-                    style:
-                        TextStyle(color: Colors.grey, fontSize: 12)),
-                Text(
-                  event.price == 0
-                      ? 'Gratuit'
-                      : '${event.price.toStringAsFixed(0)} TND',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: catColor,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Background gradient effect
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        midnightBlue,
+                        midnightBlueLight,
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: event.availablePlaces == 0
-                    ? null
-                    : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                BookingPage(event: event),
+              ),
+              
+              // Main content
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                child: Row(
+                  children: [
+                    // Left icon with pulse animation
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.book_online_rounded,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 16),
+                    
+                    // Center text
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Réserver maintenant',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: catColor,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  event.availablePlaces == 0
-                      ? 'Complet'
-                      : 'Réserver maintenant',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                          if (event.price > 0)
+                            Text(
+                              '${event.price.toStringAsFixed(0)} TND / place',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          if (isLowStock)
+                            Text(
+                              '⚠️ Plus que ${event.availablePlaces} places!',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Right price/availability badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isLowStock 
+                            ? accent 
+                            : Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: isLowStock
+                            ? [
+                                BoxShadow(
+                                  color: accent.withOpacity(0.5),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${event.availablePlaces}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isLowStock ? Colors.white : Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'places',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: isLowStock 
+                                  ? Colors.white.withOpacity(0.9)
+                                  : Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 8),
+                    
+                    // Arrow icon
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoCard({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String value,
-  }) {
+  Widget _buildSoldOutButton() {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.grey.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
+      child: ElevatedButton(
+        onPressed: null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey.shade400,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF1A1A2E))),
-              ],
-            ),
+          elevation: 0,
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.cancel_rounded,
+                size: 24,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Complet',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${widget.event.totalPlaces} places',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String mainValue,
+    required String subValue,
+    required String secondLine,
+    bool isHighlighted = false,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: midnightBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            icon,
+            color: midnightBlue,
+            size: 22,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              mainValue,
+              style: TextStyle(
+                fontSize: isHighlighted ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: isHighlighted ? accent : textPrimary,
+              ),
+            ),
+            if (subValue.isNotEmpty) ...[
+              const SizedBox(width: 2),
+              Text(
+                subValue,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (secondLine.isNotEmpty)
+          Text(
+            secondLine,
+            style: const TextStyle(
+              fontSize: 12,
+              color: textSecondary,
+            ),
+          ),
+      ],
     );
   }
 
@@ -688,19 +1114,88 @@ class _EventDetailPageState extends State<EventDetailPage> {
     switch (widget.event.category.toLowerCase()) {
       case 'concert':
       case 'musique':
-        return Icons.music_note;
+        return Icons.music_note_rounded;
       case 'sport':
-        return Icons.sports_soccer;
+        return Icons.sports_soccer_rounded;
       case 'art':
       case 'exposition':
-        return Icons.palette;
+        return Icons.palette_rounded;
       case 'conférence':
       case 'séminaire':
-        return Icons.mic;
+        return Icons.mic_rounded;
       case 'atelier':
-        return Icons.build;
+        return Icons.build_rounded;
       default:
-        return Icons.event;
+        return Icons.event_rounded;
     }
+  }
+
+  Widget _buildScrollingLocation(String location) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: location,
+        style: const TextStyle(
+          fontSize: 13,
+          color: Colors.white70,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // Check if text is too long (200 is approximate max width for location in hero)
+    final isOverflow = textPainter.width > 200;
+
+    if (!isOverflow) {
+      return Text(
+        location,
+        style: const TextStyle(
+          fontSize: 13,
+          color: Colors.white70,
+        ),
+        maxLines: 1,
+      );
+    }
+
+    // If too long, create scrollable container with automatic scroll
+    // Start animation automatically on first build if overflow
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isOverflow && _locationScrollController.status == AnimationStatus.dismissed) {
+        _locationScrollController.repeat();
+      }
+    });
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 200),
+      child: AnimatedBuilder(
+        animation: _locationScrollController,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(-(_locationScrollController.value * textPainter.width), 0),
+            child: Row(
+              children: [
+                Text(
+                  location,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white70,
+                  ),
+                  maxLines: 1,
+                ),
+                const SizedBox(width: 32),
+                Text(
+                  location,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white70,
+                  ),
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

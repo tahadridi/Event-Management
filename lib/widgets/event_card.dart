@@ -6,246 +6,542 @@ class EventCard extends StatelessWidget {
   final EventModel event;
   final VoidCallback onTap;
   final bool isFavorite;
+  final VoidCallback? onFavoriteTap;
+  final double rating;
+  final int reviewCount;
 
   const EventCard({
     super.key,
     required this.event,
     required this.onTap,
     this.isFavorite = false,
+    this.onFavoriteTap,
+    this.rating = 0,
+    this.reviewCount = 0,
   });
 
-  Color get _categoryColor {
-    switch (event.category.toLowerCase()) {
-      case 'concert':
-      case 'musique':
-        return const Color(0xFF7C3AED);
-      case 'sport':
-        return const Color(0xFF059669);
-      case 'art':
-      case 'exposition':
-        return const Color(0xFFDB2777);
-      case 'conférence':
-      case 'séminaire':
-        return const Color(0xFF2563EB);
-      case 'atelier':
-        return const Color(0xFFD97706);
-      default:
-        return const Color(0xFF6366F1);
-    }
-  }
-
-  Color get _statusColor {
-    switch (event.status) {
-      case 'Complet':
-        return Colors.red;
-      case 'En attente':
-        return Colors.orange;
-      default:
-        return Colors.green;
-    }
-  }
+  // Color palette - Midnight Blue & Cream
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF0F2A6B);
+  static const Color midnightBlueCard = Color(0xFF0C2466);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFE8E0D4);
+  static const Color accent = Color(0xFFE67E22); // Warm orange accent
+  static const Color accentLight = Color(0xFFF39C12);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textLight = Color(0xFF9CA3AF);
+  static const Color starColor = Color(0xFFFFB800);
 
   @override
   Widget build(BuildContext context) {
-    final catColor = _categoryColor;
+    final dayFormat = DateFormat('dd').format(event.date);
+    final monthFormat = DateFormat('MMM', 'fr').format(event.date).toUpperCase();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 480;
+    final imageWidth = isSmallScreen ? 100 : 130;
+    final imageHeight = isSmallScreen ? 120 : 150;
+    final contentPadding = isSmallScreen ? 10.0 : 14.0;
+    final titleFontSize = isSmallScreen ? 14.0 : 16.0;
+    final subtitleFontSize = isSmallScreen ? 10.0 : 11.0;
+    final smallFontSize = isSmallScreen ? 9.0 : 11.0;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
+        margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 16, vertical: 8),
+        child: Material(
+          elevation: 2,
+          shadowColor: Colors.black.withOpacity(0.08),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Colored top banner
-            Container(
-              height: 8,
-              decoration: BoxDecoration(
-                color: catColor,
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20)),
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top row: category + status + favorite
-                  Row(
+            child: isSmallScreen
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: catColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          event.category,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: catColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _statusColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          event.status,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _statusColor,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      if (isFavorite)
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.favorite,
-                              size: 14, color: Colors.red),
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Title
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1A2E),
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Date + Location
-                  _infoRow(
-                    Icons.calendar_month_outlined,
-                    DateFormat('EEE dd MMM • HH:mm', 'fr').format(event.date),
-                    catColor,
-                  ),
-                  const SizedBox(height: 6),
-                  _infoRow(
-                    Icons.location_on_outlined,
-                    event.location,
-                    catColor,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Bottom row: price + places
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Price badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: catColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          event.price == 0
-                              ? 'Gratuit'
-                              : '${event.price.toStringAsFixed(0)} TND',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-
-                      // Places left
-                      Row(
+                      // Top - Image with date badge
+                      Stack(
                         children: [
-                          Icon(
-                            event.availablePlaces > 0
-                                ? Icons.event_seat_outlined
-                                : Icons.block,
-                            size: 15,
-                            color: event.availablePlaces > 10
-                                ? Colors.green
-                                : event.availablePlaces > 0
-                                    ? Colors.orange
-                                    : Colors.red,
+                          ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              topRight: Radius.circular(20),
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                image: (event.imageUrl?.isNotEmpty ?? false)
+                                    ? DecorationImage(
+                                        image: NetworkImage(event.imageUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                color: midnightBlue.withOpacity(0.05),
+                              ),
+                              child: (event.imageUrl?.isEmpty ?? true)
+                                  ? Icon(
+                                      Icons.event_rounded,
+                                      size: 40,
+                                      color: midnightBlue.withOpacity(0.3),
+                                    )
+                                  : null,
+                            ),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            event.availablePlaces == 0
-                                ? 'Complet'
-                                : '${event.availablePlaces} places',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: event.availablePlaces > 10
-                                  ? Colors.green
-                                  : event.availablePlaces > 0
-                                      ? Colors.orange
-                                      : Colors.red,
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              width: 45,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: midnightBlue,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: midnightBlue.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    dayFormat,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      height: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    monthFormat,
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      // Bottom - Content
+                      Padding(
+                        padding: EdgeInsets.all(contentPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Title and favorite
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    event.title,
+                                    style: TextStyle(
+                                      fontSize: titleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: textPrimary,
+                                      height: 1.3,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: onFavoriteTap,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      isFavorite
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 18,
+                                      color: isFavorite ? accent : textLight,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Location
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_rounded,
+                                  size: 12,
+                                  color: textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    event.location,
+                                    style: TextStyle(
+                                      fontSize: smallFontSize,
+                                      color: textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            // Date and time
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 11,
+                                  color: textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat('dd MMM • HH:mm', 'fr')
+                                        .format(event.date),
+                                    style: TextStyle(
+                                      fontSize: smallFontSize - 1,
+                                      color: textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Rating and Price
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (rating > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: starColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.star_rounded,
+                                          size: 10,
+                                          color: starColor,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '$rating',
+                                          style: TextStyle(
+                                            fontSize: smallFontSize - 1,
+                                            fontWeight: FontWeight.w600,
+                                            color: textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: midnightBlue,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    event.price == 0
+                                        ? 'GRATUIT'
+                                        : '${event.price.toStringAsFixed(0)} TND',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: smallFontSize,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left side - Image with date badge
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              bottomLeft: Radius.circular(20),
+                            ),
+                            child: Container(
+                              width: imageWidth.toDouble(),
+                              height: imageHeight.toDouble(),
+                              decoration: BoxDecoration(
+                                image: (event.imageUrl?.isNotEmpty ?? false)
+                                    ? DecorationImage(
+                                        image: NetworkImage(event.imageUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                color: midnightBlue.withOpacity(0.05),
+                              ),
+                              child: (event.imageUrl?.isEmpty ?? true)
+                                  ? Icon(
+                                      Icons.event_rounded,
+                                      size: 50,
+                                      color: midnightBlue.withOpacity(0.3),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          // Date badge with midnight blue
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              width: 50,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                color: midnightBlue,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: midnightBlue.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    dayFormat,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      height: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    monthFormat,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      // Right side - Content
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.all(contentPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title and favorite button
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      event.title,
+                                      style: TextStyle(
+                                        fontSize: titleFontSize,
+                                        fontWeight: FontWeight.bold,
+                                        color: textPrimary,
+                                        height: 1.3,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: onFavoriteTap,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        isFavorite
+                                            ? Icons.favorite_rounded
+                                            : Icons.favorite_border_rounded,
+                                        size: 22,
+                                        color: isFavorite
+                                            ? accent
+                                            : textLight,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 10),
+                              
+                              // Location
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_rounded,
+                                    size: 14,
+                                    color: textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      event.location,
+                                      style: TextStyle(
+                                        fontSize: smallFontSize,
+                                        color: textSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 8),
+                              
+                              // Date and time
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 12,
+                                    color: textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat('dd MMM yyyy • HH:mm', 'fr')
+                                        .format(event.date),
+                                    style: TextStyle(
+                                      fontSize: smallFontSize,
+                                      color: textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 12),
+                              
+                              // Rating and Price row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Rating
+                                  if (rating > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: starColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.star_rounded,
+                                            size: 12,
+                                            color: starColor,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$rating',
+                                            style: TextStyle(
+                                              fontSize: subtitleFontSize,
+                                              fontWeight: FontWeight.w600,
+                                              color: textPrimary,
+                                            ),
+                                          ),
+                                          if (reviewCount > 0)
+                                            Text(
+                                              ' ($reviewCount)',
+                                              style: TextStyle(
+                                                fontSize: smallFontSize,
+                                                color: textSecondary,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  
+                                  // Price Tag
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: midnightBlue,
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: midnightBlue.withOpacity(0.2),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      event.price == 0
+                                          ? 'GRATUIT'
+                                          : '${event.price.toStringAsFixed(0)} TND',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: smallFontSize,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: color.withOpacity(0.7)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-                fontSize: 13, color: Color(0xFF555555)),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
           ),
         ),
-      ],
+      ),
     );
   }
 }

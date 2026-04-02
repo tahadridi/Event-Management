@@ -3,6 +3,42 @@ import 'package:intl/intl.dart';
 import '../../services/reservation_service.dart';
 import '../../models/event_model.dart';
 import '../../models/reservation_model.dart';
+import '../reservation/reservation_details_page.dart';
+
+// ─────────────────────────────────────────────────────────────
+// DESIGN SYSTEM - Midnight Blue & White Theme
+// ─────────────────────────────────────────────────────────────
+
+class BookingTheme {
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textHint = Color(0xFF9CA3AF);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  static const Color warning = Color(0xFFF59E0B);
+  
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [midnightBlue, midnightBlueLight],
+  );
+  
+  static BoxDecoration cardDecoration = BoxDecoration(
+    color: white,
+    borderRadius: BorderRadius.circular(20),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
+}
 
 class BookingHistoryPage extends StatefulWidget {
   const BookingHistoryPage({Key? key}) : super(key: key);
@@ -16,9 +52,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
   final ReservationService _reservationService = ReservationService();
   late TabController _tabController;
 
-  // Filtres pour l'historique
-  String _filterStatus = 'Tous'; // 'Tous', 'Confirmée', 'Annulée', 'Terminée'
-  String _sortBy = 'recent'; // 'recent', 'oldest', 'price'
+  // Filters
+  String _filterStatus = 'Tous';
+  String _sortBy = 'recent';
 
   @override
   void initState() {
@@ -41,7 +77,6 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
       status.toLowerCase() == 'annulée' ||
       status.toLowerCase() == 'annulé';
 
-  // Filtre + tri appliqués côté Dart
   List<Map<String, dynamic>> _applyFilters(
       List<Map<String, dynamic>> bookings) {
     var filtered = bookings.where((b) {
@@ -62,7 +97,6 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
       }
     }).toList();
 
-    // Tri
     filtered.sort((a, b) {
       final resA = a['reservation'] as ReservationModel;
       final resB = b['reservation'] as ReservationModel;
@@ -71,7 +105,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
           return resA.createdAt.compareTo(resB.createdAt);
         case 'price':
           return resB.totalPrice.compareTo(resA.totalPrice);
-        default: // recent
+        default:
           return resB.createdAt.compareTo(resA.createdAt);
       }
     });
@@ -79,23 +113,53 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
     return filtered;
   }
 
-  Future<void> _cancelBooking(
-      String reservationId, EventModel event) async {
+  Future<void> _cancelBooking(String reservationId, EventModel event) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Annuler la réservation'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: const Text(
+          'Annuler la réservation',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: BookingTheme.midnightBlue,
+          ),
+        ),
         content: Text(
-            'Êtes-vous sûr de vouloir annuler votre réservation pour "${event.title}" ?'),
+          'Êtes-vous sûr de vouloir annuler votre réservation pour "${event.title}" ?',
+          style: TextStyle(
+            color: BookingTheme.textSecondary,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Non'),
+            child: Text(
+              'Non',
+              style: TextStyle(
+                color: BookingTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Oui, annuler'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: BookingTheme.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Oui, annuler',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -106,13 +170,33 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
         await _reservationService.cancelReservation(reservationId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✅ Réservation annulée')),
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: 12),
+                  Text('Réservation annulée avec succès'),
+                ],
+              ),
+              backgroundColor: BookingTheme.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e')),
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: BookingTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           );
         }
       }
@@ -122,41 +206,119 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes réservations'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          tabs: const [
-            Tab(text: 'À venir'),
-            Tab(text: 'Terminées'),
-            Tab(text: 'Historique'),
+      backgroundColor: BookingTheme.cream,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header with title
+            _buildHeader(),
+            
+            // Tab Bar (moved below header)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  color: BookingTheme.midnightBlue,
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: BookingTheme.textSecondary,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                tabs: const [
+                  Tab(text: 'À venir'),
+                  Tab(text: 'Terminées'),
+                  Tab(text: 'Historique'),
+                ],
+              ),
+            ),
+            
+            // Tab Bar View
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildUpcomingTab(),
+                  _buildPastTab(),
+                  _buildHistoryTab(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 8, 20, 8),
+      child: Row(
         children: [
-          _buildUpcomingTab(),
-          _buildPastTab(),
-          _buildHistoryTab(),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: BookingTheme.midnightBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Mes réservations',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: BookingTheme.midnightBlue,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Gérez vos événements réservés',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: BookingTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // Onglet 1 — À venir (confirmées + date future)
   Widget _buildUpcomingTab() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _reservationService.getUserBookingHistory(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(BookingTheme.midnightBlue),
+            ),
+          );
         }
 
         final all = snapshot.data ?? [];
@@ -185,13 +347,16 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
     );
   }
 
-  // Onglet 2 — Terminées (confirmées + date passée)
   Widget _buildPastTab() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _reservationService.getUserBookingHistory(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(BookingTheme.midnightBlue),
+            ),
+          );
         }
 
         final all = snapshot.data ?? [];
@@ -219,13 +384,16 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
     );
   }
 
-  // Onglet 3 — Historique complet avec filtres
   Widget _buildHistoryTab() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _reservationService.getUserBookingHistory(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(BookingTheme.midnightBlue),
+            ),
+          );
         }
 
         final all = snapshot.data ?? [];
@@ -233,18 +401,23 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
 
         return Column(
           children: [
-            // Barre de filtres
+            // Filter bar
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(top: 8, left: 16, right: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200)),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  // Filtre statut
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -254,17 +427,29 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
                           final isSelected = _filterStatus == s;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
+                            child: FilterChip(
                               label: Text(s),
                               selected: isSelected,
                               onSelected: (_) =>
                                   setState(() => _filterStatus = s),
-                              selectedColor: Colors.deepPurple,
+                              backgroundColor: BookingTheme.cream,
+                              selectedColor: BookingTheme.midnightBlue,
+                              checkmarkColor: Colors.white,
                               labelStyle: TextStyle(
                                 color: isSelected
                                     ? Colors.white
-                                    : Colors.black87,
-                                fontSize: 12,
+                                    : BookingTheme.textSecondary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? BookingTheme.midnightBlue
+                                      : BookingTheme.textHint.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
                             ),
                           );
@@ -272,39 +457,81 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
                       ),
                     ),
                   ),
-                  // Tri
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.sort, color: Colors.deepPurple),
-                    tooltip: 'Trier',
-                    onSelected: (val) => setState(() => _sortBy = val),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                          value: 'recent', child: Text('Plus récent')),
-                      const PopupMenuItem(
-                          value: 'oldest', child: Text('Plus ancien')),
-                      const PopupMenuItem(
-                          value: 'price', child: Text('Prix décroissant')),
-                    ],
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    child: PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.sort_rounded,
+                        color: BookingTheme.midnightBlue,
+                      ),
+                      tooltip: 'Trier',
+                      onSelected: (val) => setState(() => _sortBy = val),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'recent',
+                          child: Row(
+                            children: [
+                              Icon(Icons.access_time, size: 18),
+                              SizedBox(width: 12),
+                              Text('Plus récent'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'oldest',
+                          child: Row(
+                            children: [
+                              Icon(Icons.history, size: 18),
+                              SizedBox(width: 12),
+                              Text('Plus ancien'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'price',
+                          child: Row(
+                            children: [
+                              Icon(Icons.attach_money, size: 18),
+                              SizedBox(width: 12),
+                              Text('Prix décroissant'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Compteur
+            // Counter
             if (all.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${filtered.length} réservation(s)',
-                    style: TextStyle(
-                        color: Colors.grey[600], fontSize: 13),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: BookingTheme.midnightBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${filtered.length} réservation(s)',
+                      style: TextStyle(
+                        color: BookingTheme.midnightBlue,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ),
 
-            // Liste
+            // List
             Expanded(
               child: filtered.isEmpty
                   ? _buildEmpty(Icons.search_off, 'Aucun résultat')
@@ -314,12 +541,10 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
                       itemBuilder: (context, index) {
                         final res = filtered[index]['reservation']
                             as ReservationModel;
-                        final event =
-                            filtered[index]['event'] as EventModel;
+                        final event = filtered[index]['event'] as EventModel;
                         final canCancel = _isConfirmed(res.status) &&
                             event.date.isAfter(DateTime.now());
-                        return _buildCard(res, event,
-                            canCancel: canCancel);
+                        return _buildCard(res, event, canCancel: canCancel);
                       },
                     ),
             ),
@@ -339,97 +564,135 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
     final isCancelled = _isCancelled(reservation.status);
 
     Color statusColor = isConfirmed
-        ? (isPast ? Colors.blue : Colors.green)
-        : (isCancelled ? Colors.red : Colors.orange);
+        ? (isPast ? BookingTheme.midnightBlueLight : BookingTheme.success)
+        : (isCancelled ? BookingTheme.error : BookingTheme.warning);
 
     String statusLabel = isConfirmed
         ? (isPast ? 'Terminée' : 'Confirmée')
         : (isCancelled ? 'Annulée' : reservation.status);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header titre + badge statut
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    event.title,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ReservationDetailsPage(
+              reservation: reservation,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BookingTheme.cardDecoration,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with title and status badge
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: BookingTheme.textPrimary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: statusColor.withOpacity(0.5),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: BookingTheme.textSecondary.withOpacity(0.5),
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Event details
+              _infoRow(
+                Icons.calendar_today_rounded,
+                DateFormat('dd MMM yyyy • HH:mm', 'fr').format(event.date),
+                BookingTheme.midnightBlue,
+              ),
+              const SizedBox(height: 10),
+              _infoRow(
+                Icons.location_on_rounded,
+                event.location,
+                BookingTheme.textSecondary,
+              ),
+              const SizedBox(height: 10),
+              _infoRow(
+                Icons.confirmation_number_rounded,
+                '${reservation.numberOfSeats} place(s)',
+                BookingTheme.textSecondary,
+              ),
+              const SizedBox(height: 10),
+              _infoRow(
+                Icons.payments_rounded,
+                reservation.totalPrice == 0
+                    ? 'Gratuit'
+                    : '${reservation.totalPrice.toStringAsFixed(0)} TND',
+                BookingTheme.midnightBlue,
+                isBold: true,
+              ),
+              const SizedBox(height: 10),
+              _infoRow(
+                Icons.access_time_rounded,
+                'Réservé le ${DateFormat('dd MMM yyyy', 'fr').format(reservation.createdAt)}',
+                BookingTheme.textHint,
+              ),
+
+              if (canCancel) ...[
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _cancelBooking(reservation.id, event),
+                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                    label: const Text('Annuler la réservation'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: BookingTheme.error,
+                      side: BorderSide(color: BookingTheme.error.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-
-            _infoRow(Icons.calendar_today,
-                DateFormat('dd MMM yyyy • HH:mm', 'fr').format(event.date)),
-            const SizedBox(height: 6),
-            _infoRow(Icons.location_on, event.location),
-            const SizedBox(height: 6),
-            _infoRow(Icons.confirmation_number,
-                '${reservation.numberOfSeats} place(s)'),
-            const SizedBox(height: 6),
-            _infoRow(
-              Icons.payments_outlined,
-              '${reservation.totalPrice.toStringAsFixed(2)} TND',
-              color: Colors.deepPurple,
-            ),
-            const SizedBox(height: 6),
-            _infoRow(
-              Icons.access_time,
-              'Réservé le ${DateFormat('dd MMM yyyy', 'fr').format(reservation.createdAt)}',
-              color: Colors.grey,
-            ),
-
-            if (canCancel) ...[
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _cancelBooking(reservation.id, event),
-                  icon: const Icon(Icons.cancel_outlined,
-                      color: Colors.red, size: 18),
-                  label: const Text('Annuler la réservation',
-                      style: TextStyle(color: Colors.red)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                  ),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -440,25 +703,45 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(message,
-              style: TextStyle(fontSize: 16, color: Colors.grey[500])),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: BookingTheme.midnightBlue.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 64,
+              color: BookingTheme.midnightBlue.withOpacity(0.3),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 16,
+              color: BookingTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String text, {Color? color}) {
+  Widget _infoRow(IconData icon, String text, Color color, {bool isBold = false}) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: color ?? Colors.deepPurple),
-        const SizedBox(width: 8),
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: TextStyle(
-                fontSize: 13, color: color ?? Colors.black87),
+              fontSize: 13,
+              color: color,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

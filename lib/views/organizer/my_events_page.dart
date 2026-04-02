@@ -20,11 +20,24 @@ class _MyEventsPageState extends State<MyEventsPage>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // Color palette
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFF5EDE2);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color success = Color(0xFF10B981);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+  static const Color info = Color(0xFF3B82F6);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _fadeAnimation = CurvedAnimation(
@@ -45,7 +58,7 @@ class _MyEventsPageState extends State<MyEventsPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+        backgroundColor: isError ? error : success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -64,17 +77,19 @@ class _MyEventsPageState extends State<MyEventsPage>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
+        backgroundColor: Colors.white,
         title: const Text(
           'Supprimer l\'événement',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
+            color: midnightBlue,
           ),
         ),
         content: Text(
           'Êtes-vous sûr de vouloir supprimer "${event.title}"? Cette action ne peut pas être annulée.',
           style: TextStyle(
-            color: Colors.grey[600],
+            color: textSecondary,
           ),
         ),
         actions: [
@@ -83,7 +98,7 @@ class _MyEventsPageState extends State<MyEventsPage>
             child: Text(
               'Annuler',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -91,7 +106,7 @@ class _MyEventsPageState extends State<MyEventsPage>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: error,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -100,6 +115,7 @@ class _MyEventsPageState extends State<MyEventsPage>
               'Supprimer',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
@@ -123,262 +139,252 @@ class _MyEventsPageState extends State<MyEventsPage>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 480;
+    
+    // Responsive variables - reduced sizes to prevent overflow
+    final appBarHeight = isSmallScreen ? 120.0 : 160.0;
+    final headerTitleFontSize = isSmallScreen ? 22.0 : 28.0;
+    final headerSubtitleFontSize = isSmallScreen ? 11.0 : 13.0;
+    final headerPadding = isSmallScreen ? 12.0 : 24.0;
+    final headerIconSize = isSmallScreen ? 40.0 : 50.0;
+    final headerIconInnerSize = isSmallScreen ? 20.0 : 28.0;
+    final listPadding = isSmallScreen ? 12.0 : 20.0;
+    final fabFontSize = isSmallScreen ? 11.0 : 14.0;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      appBar: AppBar(
-        title: const Text(
-          'Mes Événements',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF1A1A2E),
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        centerTitle: false,
-        toolbarHeight: 100,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF8F9FF),
-                Color(0xFFF0F2FF),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
+      backgroundColor: cream,
+      body: CustomScrollView(
+        slivers: [
+          // Modern Header - Fixed SliverAppBar
+          SliverAppBar(
+            expandedHeight: appBarHeight,
+            pinned: true,
+            backgroundColor: cream,
+            foregroundColor: midnightBlue,
+            elevation: 0,
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF6366F1),
-                      const Color(0xFF8B5CF6),
+                      cream,
+                      creamDark,
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.bar_chart,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const OrganizerStatisticsPage(),
-                  ),
-                );
-              },
-              tooltip: 'Statistiques',
-            ),
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<EventModel>>(
-        stream: _eventService.getOrganizerEvents(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEE2E2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: Color(0xFFEF4444),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Oops!Une erreur est survenue',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${snapshot.error}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {});
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('Réessayer'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final events = snapshot.data ?? [];
-
-          if (events.isEmpty) {
-            return FadeTransition(
-              opacity: _fadeAnimation,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF6366F1).withOpacity(0.1),
-                            const Color(0xFF8B5CF6).withOpacity(0.1),
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(headerPadding, isSmallScreen ? 30 : 50, headerPadding, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: headerIconSize,
+                              height: headerIconSize,
+                              decoration: BoxDecoration(
+                                color: midnightBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                Icons.event_note_rounded,
+                                size: headerIconInnerSize,
+                                color: midnightBlue,
+                              ),
+                            ),
+                            SizedBox(width: isSmallScreen ? 10 : 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mes Événements',
+                                    style: TextStyle(
+                                      fontSize: headerTitleFontSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: midnightBlue,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                  Text(
+                                    'Gérez et organisez vos événements',
+                                    style: TextStyle(
+                                      fontSize: headerSubtitleFontSize,
+                                      color: textSecondary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: midnightBlue,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.bar_chart_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const OrganizerStatisticsPage(),
+                                    ),
+                                  );
+                                },
+                                tooltip: 'Statistiques',
+                                padding: const EdgeInsets.all(8),
+                                constraints: const BoxConstraints(),
+                              ),
+                            ),
                           ],
                         ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.event_note,
-                        size: 80,
-                        color: const Color(0xFF6366F1).withOpacity(0.5),
+                        SizedBox(height: isSmallScreen ? 8 : 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Content
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: StreamBuilder<List<EventModel>>(
+              stream: _eventService.getOrganizerEvents(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(midnightBlue),
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Aucun Événement Pour Le Moment',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Créez votre premier événement pour commencer',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateEventPage(),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: error.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.error_outline,
+                              size: 56,
+                              color: error,
+                            ),
                           ),
-                        ).then((_) {
-                          if (mounted) {
-                            setState(() {});
-                          }
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.add, size: 20),
-                          SizedBox(width: 8),
+                          const SizedBox(height: 20),
                           Text(
-                            'Créer un Événement',
+                            'Oops! Une erreur est survenue',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.w600,
+                              color: midnightBlue,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${snapshot.error}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {});
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: midnightBlue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text(
+                              'Réessayer',
+                              style: TextStyle(color: Colors.white),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            );
-          }
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {});
-            },
-            color: const Color(0xFF6366F1),
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              physics: const BouncingScrollPhysics(),
-              itemCount: events.length,
-              itemBuilder: (context, index) {
-                final event = events[index];
-                return FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.05),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: _animationController,
-                      curve: Interval(
-                        index * 0.05,
-                        1.0,
-                        curve: Curves.easeOut,
-                      ),
-                    )),
-                    child: _buildEventCard(context, event),
+                final events = snapshot.data ?? [];
+
+                if (events.isEmpty) {
+                  return _buildEmptyState(isSmallScreen);
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    setState(() {});
+                  },
+                  color: midnightBlue,
+                  child: ListView.builder(
+                    padding: EdgeInsets.fromLTRB(listPadding, 8, listPadding, 100),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: events.length,
+                    itemBuilder: (context, index) {
+                      final event = events[index];
+                      return FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.05),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: _animationController,
+                            curve: Interval(
+                              index * 0.05,
+                              1.0,
+                              curve: Curves.easeOut,
+                            ),
+                          )),
+                          child: Padding(
+                            padding: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
+                            child: _buildModernEventCard(
+                              context,
+                              event,
+                              isSmallScreen,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -393,13 +399,14 @@ class _MyEventsPageState extends State<MyEventsPage>
             }
           });
         },
-        backgroundColor: const Color(0xFF6366F1),
-        elevation: 0,
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text(
-          'Créer un Événement',
+        backgroundColor: midnightBlue,
+        elevation: 4,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(
+          'Créer',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: fabFontSize,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -410,245 +417,270 @@ class _MyEventsPageState extends State<MyEventsPage>
     );
   }
 
-  Widget _buildEventCard(BuildContext context, EventModel event) {
+  Widget _buildEmptyState(bool isSmallScreen) {
+    final iconSize = isSmallScreen ? 50.0 : 70.0;
+    final titleFontSize = isSmallScreen ? 18.0 : 24.0;
+    final subtitleFontSize = isSmallScreen ? 11.0 : 14.0;
+    final buttonFontSize = isSmallScreen ? 13.0 : 16.0;
+    final verticalSpacing = isSmallScreen ? 16.0 : 32.0;
+    
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 20 : 32, vertical: isSmallScreen ? 30 : 60),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: isSmallScreen ? 90 : 140,
+              height: isSmallScreen ? 90 : 140,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    midnightBlue.withOpacity(0.05),
+                    midnightBlue.withOpacity(0.02),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.event_available_rounded,
+                size: iconSize,
+                color: midnightBlue.withOpacity(0.3),
+              ),
+            ),
+            SizedBox(height: verticalSpacing),
+            Text(
+              'Aucun événement créé',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.bold,
+                color: midnightBlue,
+                letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 6 : 12),
+            Text(
+              'Commencez à créer votre premier événement',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: textSecondary,
+                height: 1.4,
+              ),
+            ),
+            SizedBox(height: verticalSpacing),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateEventPage(),
+                  ),
+                ).then((_) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                });
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(
+                'Créer un événement',
+                style: TextStyle(
+                  fontSize: buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: midnightBlue,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 20 : 32,
+                  vertical: isSmallScreen ? 10 : 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernEventCard(
+    BuildContext context,
+    EventModel event,
+    bool isSmallScreen,
+  ) {
     final DateFormat dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
     final DateFormat timeFormat = DateFormat('HH:mm', 'fr_FR');
-
+    
     final isExpired = event.date.isBefore(DateTime.now());
     final isAlmostFull = event.availablePlaces <= (event.totalPlaces * 0.2);
     final occupancyPercentage = ((event.totalPlaces - event.availablePlaces) / event.totalPlaces) * 100;
+    
+    // Responsive sizes - reduced to prevent overflow
+    final heroBgHeight = isSmallScreen ? 100.0 : 140.0;
+    final titleFontSize = isSmallScreen ? 16.0 : 20.0;
+    final subtitleFontSize = isSmallScreen ? 10.0 : 12.0;
+    final statusFontSize = isSmallScreen ? 9.0 : 11.0;
+    final chipFontSize = isSmallScreen ? 9.0 : 11.0;
+    final occupancyLabelFontSize = isSmallScreen ? 10.0 : 12.0;
+    final occupancyPercentFontSize = isSmallScreen ? 10.0 : 12.0;
+    final statLabelFontSize = isSmallScreen ? 9.0 : 11.0;
+    final statValueFontSize = isSmallScreen ? 13.0 : 16.0;
+    final datechipFontSize = isSmallScreen ? 10.0 : 12.0;
+    final actionButtonFontSize = isSmallScreen ? 11.0 : 14.0;
+    
+    // Icon sizes
+    final heroIconSize = isSmallScreen ? 8.0 : 12.0;
+    final chipIconSize = isSmallScreen ? 10.0 : 12.0;
+    final statIconSize = isSmallScreen ? 18.0 : 22.0;
+    final dateChipIconSize = isSmallScreen ? 12.0 : 14.0;
+    final actionButtonIconSize = isSmallScreen ? 14.0 : 18.0;
+    
+    // Spacing
+    final heroContentPadding = isSmallScreen ? 10.0 : 20.0;
+    final statsRowPadding = isSmallScreen ? 8.0 : 16.0;
+    final dateChipSpacing = isSmallScreen ? 6.0 : 12.0;
+    final contentCardPadding = isSmallScreen ? 12.0 : 20.0;
+    final actionButtonSpacing = isSmallScreen ? 6.0 : 12.0;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Material(
-        elevation: 0,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with gradient
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF6366F1).withOpacity(0.1),
-                      const Color(0xFF8B5CF6).withOpacity(0.05),
-                    ],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
+    return Material(
+      elevation: 0,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Hero Section
+            Container(
+              height: heroBgHeight,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    midnightBlue,
+                    midnightBlueLight,
+                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              event.title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1A1A2E),
-                                letterSpacing: -0.3,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                _buildStatusBadge(
-                                  isExpired
-                                      ? 'Ended'
-                                      : isAlmostFull
-                                          ? 'Almost Full'
-                                          : 'Active',
-                                  isExpired
-                                      ? Colors.grey
-                                      : isAlmostFull
-                                          ? const Color(0xFFF59E0B)
-                                          : const Color(0xFF10B981),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
               ),
-
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(20),
+              child: Padding(
+                padding: EdgeInsets.all(heroContentPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Date & Time
                     Row(
                       children: [
-                        _buildInfoRow(
-                          Icons.calendar_today,
-                          dateFormat.format(event.date),
-                          const Color(0xFF6366F1),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 8 : 12,
+                            vertical: isSmallScreen ? 4 : 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isExpired
+                                ? Colors.white.withOpacity(0.2)
+                                : success.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isExpired
+                                    ? Icons.check_circle_rounded
+                                    : Icons.circle_rounded,
+                                size: heroIconSize,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: isSmallScreen ? 3 : 6),
+                              Text(
+                                isExpired
+                                    ? 'Terminé'
+                                    : isAlmostFull
+                                        ? 'Complet'
+                                        : 'Actif',
+                                style: TextStyle(
+                                  fontSize: statusFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 16),
-                        _buildInfoRow(
-                          Icons.access_time,
-                          timeFormat.format(event.date),
-                          const Color(0xFF8B5CF6),
+                        const Spacer(),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 6 : 10,
+                            vertical: isSmallScreen ? 3 : 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            event.category,
+                            style: TextStyle(
+                              fontSize: chipFontSize,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Location
-                    _buildInfoRow(
-                      Icons.location_on,
-                      event.location,
-                      const Color(0xFFA855F7),
+                    const Spacer(),
+                    Text(
+                      event.title,
+                      style: TextStyle(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 20),
-
-                    // Stats Grid
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FF),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatItem(
-                              'Places',
-                              '${event.availablePlaces}/${event.totalPlaces}',
-                              Icons.people,
-                            ),
-                          ),
-                          Container(
-                            height: 40,
-                            width: 1,
-                            color: Colors.grey[200],
-                          ),
-                          Expanded(
-                            child: _buildStatItem(
-                              'Prix',
-                              event.price == 0 ? 'Gratuit' : '${event.price}DT',
-                              Icons.attach_money,
-                            ),
-                          ),
-                          Container(
-                            height: 40,
-                            width: 1,
-                            color: Colors.grey[200],
-                          ),
-                          Expanded(
-                            child: _buildStatItem(
-                              'Catégorie',
-                              event.category,
-                              Icons.category,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Occupancy Progress
-                    if (!isExpired) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Taux d\'Occupation',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            '${occupancyPercentage.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _getOccupancyColor(occupancyPercentage),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: occupancyPercentage / 100,
-                          minHeight: 6,
-                          backgroundColor: Colors.grey[100],
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _getOccupancyColor(occupancyPercentage),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Action Buttons
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Expanded(
-                          child: _buildActionButton(
-                            icon: Icons.edit_outlined,
-                            label: 'Modifier',
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => EditEventPage(event: event),
-                                ),
-                              );
-                              if (result == true && mounted) {
-                                setState(() {});
-                              }
-                            },
-                            isPrimary: false,
-                          ),
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: isSmallScreen ? 10.0 : 12.0,
+                          color: Colors.white70,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: isSmallScreen ? 2 : 4),
                         Expanded(
-                          child: _buildActionButton(
-                            icon: Icons.delete_outline,
-                            label: 'Supprimer',
-                            onPressed: () => _deleteEvent(event),
-                            isPrimary: false,
-                            isDestructive: true,
+                          child: Text(
+                            event.location,
+                            style: TextStyle(
+                              fontSize: subtitleFontSize,
+                              color: Colors.white70,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -656,118 +688,287 @@ class _MyEventsPageState extends State<MyEventsPage>
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // Content Section
+            Padding(
+              padding: EdgeInsets.all(contentCardPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Date and Time Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildDateChip(
+                          icon: Icons.calendar_today_rounded,
+                          label: dateFormat.format(event.date),
+                          fontSize: datechipFontSize,
+                          iconSize: dateChipIconSize,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ),
+                      SizedBox(width: dateChipSpacing),
+                      Expanded(
+                        child: _buildDateChip(
+                          icon: Icons.access_time_rounded,
+                          label: timeFormat.format(event.date),
+                          fontSize: datechipFontSize,
+                          iconSize: dateChipIconSize,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 8.0 : 16.0),
+                  
+                  // Stats Row
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: statsRowPadding, horizontal: statsRowPadding),
+                    decoration: BoxDecoration(
+                      color: cream,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildModernStatItem(
+                          value: '${event.availablePlaces}',
+                          label: 'Places',
+                          icon: Icons.people_rounded,
+                          color: midnightBlue,
+                          valueFont: statValueFontSize,
+                          labelFont: statLabelFontSize,
+                          iconSize: statIconSize,
+                        ),
+                        Container(
+                          width: 1,
+                          height: isSmallScreen ? 25 : 35,
+                          color: Colors.grey[300],
+                        ),
+                        _buildModernStatItem(
+                          value: event.price == 0 ? 'Gratuit' : '${event.price} DT',
+                          label: 'Prix',
+                          icon: Icons.payments_rounded,
+                          color: midnightBlue,
+                          valueFont: statValueFontSize,
+                          labelFont: statLabelFontSize,
+                          iconSize: statIconSize,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  if (!isExpired) ...[
+                    SizedBox(height: isSmallScreen ? 8.0 : 16.0),
+                    
+                    // Occupancy Progress
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Occupation',
+                              style: TextStyle(
+                                fontSize: occupancyLabelFontSize,
+                                color: textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              '${occupancyPercentage.toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                fontSize: occupancyPercentFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: _getOccupancyColor(occupancyPercentage),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isSmallScreen ? 4 : 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: occupancyPercentage / 100,
+                            minHeight: isSmallScreen ? 4 : 6,
+                            backgroundColor: cream,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _getOccupancyColor(occupancyPercentage),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  
+                  SizedBox(height: isSmallScreen ? 8.0 : 16.0),
+                  
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildModernActionButton(
+                          icon: Icons.edit_rounded,
+                          label: 'Modifier',
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditEventPage(event: event),
+                              ),
+                            );
+                            if (result == true && mounted) {
+                              setState(() {});
+                            }
+                          },
+                          color: midnightBlue,
+                          fontSize: actionButtonFontSize,
+                          iconSize: actionButtonIconSize,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ),
+                      SizedBox(width: actionButtonSpacing),
+                      Expanded(
+                        child: _buildModernActionButton(
+                          icon: Icons.delete_rounded,
+                          label: 'Supprimer',
+                          onPressed: () => _deleteEvent(event),
+                          color: error,
+                          fontSize: actionButtonFontSize,
+                          iconSize: actionButtonIconSize,
+                          isDestructive: true,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(String text, Color color) {
+  Widget _buildDateChip({
+    required IconData icon,
+    required String label,
+    required double fontSize,
+    required double iconSize,
+    required bool isSmallScreen,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 12, vertical: isSmallScreen ? 5 : 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: cream,
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Row(
+        children: [
+          Icon(icon, size: iconSize, color: midnightBlue),
+          SizedBox(width: isSmallScreen ? 4 : 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w500,
+                color: textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+  Widget _buildModernStatItem({
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required double valueFont,
+    required double labelFont,
+    required double iconSize,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: iconSize, color: color.withOpacity(0.7)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: valueFont,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: labelFont,
+              color: textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF6366F1).withOpacity(0.7)),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A2E),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[500],
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
+  Widget _buildModernActionButton({
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
-    required bool isPrimary,
+    required Color color,
+    required double fontSize,
+    required double iconSize,
+    required bool isSmallScreen,
     bool isDestructive = false,
   }) {
     return Material(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8 : 10),
           decoration: BoxDecoration(
             border: Border.all(
               color: isDestructive
-                  ? const Color(0xFFEF4444).withOpacity(0.3)
-                  : Colors.grey[300]!,
+                  ? error.withOpacity(0.3)
+                  : color.withOpacity(0.3),
               width: 1,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 18,
-                color: isDestructive
-                    ? const Color(0xFFEF4444)
-                    : Colors.grey[600],
+                size: iconSize,
+                color: isDestructive ? error : color,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: isSmallScreen ? 4 : 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w600,
-                  color: isDestructive
-                      ? const Color(0xFFEF4444)
-                      : Colors.grey[700],
+                  color: isDestructive ? error : color,
                 ),
               ),
             ],
@@ -778,8 +979,8 @@ class _MyEventsPageState extends State<MyEventsPage>
   }
 
   Color _getOccupancyColor(double percentage) {
-    if (percentage > 80) return const Color(0xFF10B981);
-    if (percentage > 50) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
+    if (percentage < 30) return success;
+    if (percentage < 70) return warning;
+    return error;
   }
 }

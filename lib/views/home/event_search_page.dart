@@ -5,6 +5,29 @@ import '../../services/event_service.dart';
 import '../../services/user_service.dart';
 import '../home/event_detail_page.dart';
 
+// ─────────────────────────────────────────────────────────────
+// DESIGN SYSTEM - Midnight Blue & White Theme
+// ─────────────────────────────────────────────────────────────
+
+class SearchTheme {
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textHint = Color(0xFF9CA3AF);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  static const Color warning = Color(0xFFF59E0B);
+  
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [midnightBlue, midnightBlueLight],
+  );
+}
+
 class EventSearchPage extends StatefulWidget {
   const EventSearchPage({Key? key}) : super(key: key);
 
@@ -50,7 +73,6 @@ class _EventSearchPageState extends State<EventSearchPage> {
       final favorites = await userService.getUserFavoritesStream().first;
       if (mounted) {
         setState(() => _userFavorites = Set.from(favorites));
-        // Trigger search again to apply favorites sorting now that they're loaded
         await _performSearch();
       }
     } catch (e) {
@@ -81,12 +103,10 @@ class _EventSearchPageState extends State<EventSearchPage> {
         endDate: _endDate,
       );
 
-      // Filtrer les favoris si activé
       var filtered = _showOnlyFavorites
           ? results.where((event) => _userFavorites.contains(event.id)).toList()
           : results;
 
-      // Trier pour mettre les favoris en haut
       filtered.sort((a, b) {
         final aIsFav = _userFavorites.contains(a.id);
         final bIsFav = _userFavorites.contains(b.id);
@@ -102,7 +122,14 @@ class _EventSearchPageState extends State<EventSearchPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: SearchTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
     }
   }
@@ -113,6 +140,18 @@ class _EventSearchPageState extends State<EventSearchPage> {
       initialDate: isStart ? (_startDate ?? DateTime.now()) : (_endDate ?? DateTime.now().add(const Duration(days: 7))),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: SearchTheme.midnightBlue,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
@@ -130,28 +169,46 @@ class _EventSearchPageState extends State<EventSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SearchTheme.cream,
       appBar: AppBar(
-        title: const Text('Rechercher des événements'),
-        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          'Rechercher',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        foregroundColor: SearchTheme.midnightBlue,
         elevation: 0,
       ),
       body: Column(
         children: [
           // Search Bar
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.deepPurple.shade50,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
               children: [
                 TextField(
                   controller: _searchController,
                   onChanged: (_) => _performSearch(),
+                  style: const TextStyle(fontSize: 16),
                   decoration: InputDecoration(
                     hintText: 'Tapez un mot-clé...',
-                    prefixIcon: const Icon(Icons.search),
+                    hintStyle: TextStyle(
+                      color: SearchTheme.textHint,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: SearchTheme.midnightBlue,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: SearchTheme.textHint,
+                            ),
                             onPressed: () {
                               _searchController.clear();
                               _performSearch();
@@ -159,10 +216,26 @@ class _EventSearchPageState extends State<EventSearchPage> {
                           )
                         : null,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: const BorderSide(
+                        color: SearchTheme.midnightBlue,
+                        width: 1.5,
+                      ),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: SearchTheme.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -172,8 +245,18 @@ class _EventSearchPageState extends State<EventSearchPage> {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     onPressed: () => setState(() => _showFilters = !_showFilters),
-                    icon: const Icon(Icons.tune),
-                    label: const Text('Filtres'),
+                    icon: Icon(
+                      Icons.tune_rounded,
+                      color: SearchTheme.midnightBlue,
+                      size: 20,
+                    ),
+                    label: Text(
+                      _showFilters ? 'Masquer les filtres' : 'Filtres',
+                      style: TextStyle(
+                        color: SearchTheme.midnightBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -183,24 +266,35 @@ class _EventSearchPageState extends State<EventSearchPage> {
           // Filters
           if (_showFilters)
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade200),
-                ),
+                color: SearchTheme.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Category
-                  const Text(
+                  Text(
                     'Catégorie',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: SearchTheme.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: _categories.map((cat) {
                       final isSelected = _selectedCategory == cat;
                       return FilterChip(
@@ -210,42 +304,68 @@ class _EventSearchPageState extends State<EventSearchPage> {
                           setState(() => _selectedCategory = cat);
                           _performSearch();
                         },
-                        backgroundColor: Colors.grey.shade200,
-                        selectedColor: Colors.deepPurple,
+                        backgroundColor: SearchTheme.cream,
+                        selectedColor: SearchTheme.midnightBlue,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black,
+                          color: isSelected ? Colors.white : SearchTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: isSelected
+                                ? SearchTheme.midnightBlue
+                                : SearchTheme.textHint.withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // Price Range
-                  const Text(
+                  Text(
                     'Prix (0 - 200 TND)',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: SearchTheme.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
                           '${_minPrice.toStringAsFixed(0)} TND',
-                          style: const TextStyle(fontSize: 12),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: SearchTheme.textSecondary,
+                          ),
                         ),
                       ),
                       Expanded(
                         flex: 2,
-                        child: Slider(
-                          value: _minPrice,
-                          min: 0,
-                          max: 200,
-                          divisions: 20,
-                          label: _minPrice.toStringAsFixed(0),
-                          onChanged: (value) {
-                            setState(() => _minPrice = value);
-                          },
-                          onChangeEnd: (_) => _performSearch(),
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            activeTrackColor: SearchTheme.midnightBlue,
+                            inactiveTrackColor: SearchTheme.textHint.withOpacity(0.3),
+                            thumbColor: SearchTheme.midnightBlue,
+                            overlayColor: SearchTheme.midnightBlue.withOpacity(0.2),
+                            trackHeight: 4,
+                          ),
+                          child: Slider(
+                            value: _minPrice,
+                            min: 0,
+                            max: 200,
+                            divisions: 20,
+                            label: _minPrice.toStringAsFixed(0),
+                            onChanged: (value) {
+                              setState(() => _minPrice = value);
+                            },
+                            onChangeEnd: (_) => _performSearch(),
+                          ),
                         ),
                       ),
                     ],
@@ -255,57 +375,110 @@ class _EventSearchPageState extends State<EventSearchPage> {
                       Expanded(
                         child: Text(
                           '${_maxPrice.toStringAsFixed(0)} TND',
-                          style: const TextStyle(fontSize: 12),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: SearchTheme.textSecondary,
+                          ),
                         ),
                       ),
                       Expanded(
                         flex: 2,
-                        child: Slider(
-                          value: _maxPrice,
-                          min: 0,
-                          max: 200,
-                          divisions: 20,
-                          label: _maxPrice.toStringAsFixed(0),
-                          onChanged: (value) {
-                            setState(() => _maxPrice = value);
-                          },
-                          onChangeEnd: (_) => _performSearch(),
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            activeTrackColor: SearchTheme.midnightBlue,
+                            inactiveTrackColor: SearchTheme.textHint.withOpacity(0.3),
+                            thumbColor: SearchTheme.midnightBlue,
+                            overlayColor: SearchTheme.midnightBlue.withOpacity(0.2),
+                            trackHeight: 4,
+                          ),
+                          child: Slider(
+                            value: _maxPrice,
+                            min: 0,
+                            max: 200,
+                            divisions: 20,
+                            label: _maxPrice.toStringAsFixed(0),
+                            onChanged: (value) {
+                              setState(() => _maxPrice = value);
+                            },
+                            onChangeEnd: (_) => _performSearch(),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // Date Range
-                  const Text(
+                  Text(
                     'Période',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: SearchTheme.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _selectDate(true),
-                          icon: const Icon(Icons.calendar_today),
-                          label: Text(_startDate == null
-                              ? 'Date début'
-                              : DateFormat('dd/MM/yyy').format(_startDate!)),
+                          icon: Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: SearchTheme.midnightBlue,
+                          ),
+                          label: Text(
+                            _startDate == null
+                                ? 'Date début'
+                                : DateFormat('dd/MM/yyy').format(_startDate!),
+                            style: TextStyle(
+                              color: _startDate == null
+                                  ? SearchTheme.textSecondary
+                                  : SearchTheme.midnightBlue,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: SearchTheme.textHint.withOpacity(0.3)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _selectDate(false),
-                          icon: const Icon(Icons.calendar_today),
-                          label: Text(_endDate == null
-                              ? 'Date fin'
-                              : DateFormat('dd/MM/yyy').format(_endDate!)),
+                          icon: Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: SearchTheme.midnightBlue,
+                          ),
+                          label: Text(
+                            _endDate == null
+                                ? 'Date fin'
+                                : DateFormat('dd/MM/yyy').format(_endDate!),
+                            style: TextStyle(
+                              color: _endDate == null
+                                  ? SearchTheme.textSecondary
+                                  : SearchTheme.midnightBlue,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: SearchTheme.textHint.withOpacity(0.3)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
                       if (_startDate != null || _endDate != null)
                         IconButton(
-                          icon: const Icon(Icons.clear),
+                          icon: Icon(
+                            Icons.clear_rounded,
+                            color: SearchTheme.textHint,
+                          ),
                           onPressed: () {
                             setState(() {
                               _startDate = null;
@@ -316,14 +489,18 @@ class _EventSearchPageState extends State<EventSearchPage> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // Favoris filter
-                  const Text(
+                  // Favorites filter
+                  Text(
                     'Favoris',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: SearchTheme.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   FilterChip(
                     selected: _showOnlyFavorites,
                     label: const Text('Afficher uniquement les favoris'),
@@ -331,13 +508,28 @@ class _EventSearchPageState extends State<EventSearchPage> {
                       setState(() => _showOnlyFavorites = selected);
                       _performSearch();
                     },
-                    backgroundColor: Colors.grey.shade200,
-                    selectedColor: Colors.deepPurple,
+                    backgroundColor: SearchTheme.cream,
+                    selectedColor: SearchTheme.midnightBlue,
                     labelStyle: TextStyle(
-                      color: _showOnlyFavorites ? Colors.white : Colors.black,
+                      color: _showOnlyFavorites ? Colors.white : SearchTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    avatar: Icon(
+                      _showOnlyFavorites ? Icons.favorite : Icons.favorite_border,
+                      size: 18,
+                      color: _showOnlyFavorites ? Colors.white : SearchTheme.error,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: _showOnlyFavorites
+                            ? SearchTheme.midnightBlue
+                            : SearchTheme.textHint.withOpacity(0.3),
+                        width: 1,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   
                   // Reset button
                   SizedBox(
@@ -355,7 +547,20 @@ class _EventSearchPageState extends State<EventSearchPage> {
                           _searchResults = [];
                         });
                       },
-                      child: const Text('Réinitialiser les filtres'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: SearchTheme.textHint.withOpacity(0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Réinitialiser les filtres',
+                        style: TextStyle(
+                          color: SearchTheme.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -365,23 +570,43 @@ class _EventSearchPageState extends State<EventSearchPage> {
           // Results
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(SearchTheme.midnightBlue),
+                    ),
+                  )
                 : _searchResults.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 64,
-                              color: Colors.grey[400],
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: SearchTheme.midnightBlue.withOpacity(0.05),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.search_off_rounded,
+                                size: 64,
+                                color: SearchTheme.midnightBlue.withOpacity(0.3),
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Text(
                               'Aucun résultat trouvé',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.grey[600],
+                                color: SearchTheme.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Essayez d\'ajuster vos filtres',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: SearchTheme.textHint,
                               ),
                             ),
                           ],
@@ -402,12 +627,20 @@ class _EventSearchPageState extends State<EventSearchPage> {
   }
 
   Widget _buildEventCard(EventModel event) {
+    final isFavorite = _userFavorites.contains(event.id);
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: SearchTheme.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () {
@@ -418,9 +651,9 @@ class _EventSearchPageState extends State<EventSearchPage> {
             ),
           );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -431,71 +664,87 @@ class _EventSearchPageState extends State<EventSearchPage> {
                     child: Text(
                       event.title,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: SearchTheme.textPrimary,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.deepPurple.shade50,
+                      color: SearchTheme.midnightBlue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       event.category,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.deepPurple,
+                        color: SearchTheme.midnightBlue,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.deepPurple),
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 16,
+                    color: SearchTheme.midnightBlue,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       DateFormat('dd MMM yyyy • HH:mm', 'fr').format(event.date),
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: SearchTheme.textSecondary,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.location_on, size: 16, color: Colors.deepPurple),
+                  Icon(
+                    Icons.location_on_rounded,
+                    size: 16,
+                    color: SearchTheme.midnightBlue,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       event.location,
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: SearchTheme.textSecondary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     event.price == 0 ? 'Gratuit' : '${event.price.toStringAsFixed(0)} TND',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple.shade700,
+                      color: SearchTheme.midnightBlue,
                     ),
                   ),
                   Container(
@@ -505,30 +754,68 @@ class _EventSearchPageState extends State<EventSearchPage> {
                     ),
                     decoration: BoxDecoration(
                       color: event.availablePlaces > 0
-                          ? Colors.green.shade50
-                          : Colors.red.shade50,
+                          ? SearchTheme.success.withOpacity(0.1)
+                          : SearchTheme.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: event.availablePlaces > 0
-                            ? Colors.green
-                            : Colors.red,
+                            ? SearchTheme.success
+                            : SearchTheme.error,
+                        width: 1,
                       ),
                     ),
-                    child: Text(
-                      event.availablePlaces > 0
-                          ? '${event.availablePlaces} places'
-                          : 'Complet',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: event.availablePlaces > 0
-                            ? Colors.green
-                            : Colors.red,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          event.availablePlaces > 0
+                              ? Icons.event_seat_rounded
+                              : Icons.cancel_rounded,
+                          size: 14,
+                          color: event.availablePlaces > 0
+                              ? SearchTheme.success
+                              : SearchTheme.error,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          event.availablePlaces > 0
+                              ? '${event.availablePlaces} places'
+                              : 'Complet',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: event.availablePlaces > 0
+                                ? SearchTheme.success
+                                : SearchTheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
+              if (isFavorite)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.favorite_rounded,
+                        size: 12,
+                        color: SearchTheme.error,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Dans vos favoris',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: SearchTheme.error,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

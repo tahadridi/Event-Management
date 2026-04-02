@@ -18,9 +18,25 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
     with SingleTickerProviderStateMixin {
   final EventService _eventService = EventService();
   final ReservationService _reservationService = ReservationService();
-  final NumberFormat currencyFormat = NumberFormat.currency(locale: 'fr_TN');
+  final NumberFormat currencyFormat = NumberFormat.currency(
+    locale: 'fr_TN',
+    symbol: 'TND',
+    decimalDigits: 0,
+  );
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFF5EDE2);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color success = Color(0xFF10B981);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color cardWhite = Color(0xFFFFFFFF);
 
   @override
   void initState() {
@@ -45,245 +61,283 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
-      appBar: AppBar(
-        title: const Text(
-          'Statistiques',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF1A1A2E),
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-        centerTitle: false,
-        toolbarHeight: 100,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF8F9FF),
-                Color(0xFFF0F2FF),
-              ],
-            ),
-          ),
-        ),
-      ),
-      body: StreamBuilder<List<EventModel>>(
-        stream: _eventService.getOrganizerEvents(),
-        builder: (context, eventSnapshot) {
-          return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _reservationService.getOrganizerReservations(),
-            builder: (context, reservationSnapshot) {
-              if (eventSnapshot.connectionState == ConnectionState.waiting ||
-                  reservationSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
-                  ),
-                );
-              }
-
-              final events = eventSnapshot.data ?? [];
-              final reservations = reservationSnapshot.data ?? [];
-
-              int totalReservations = 0;
-              int totalSeatsBooked = 0;
-              double totalRevenue = 0;
-              int totalCapacity = 0;
-
-              for (var res in reservations) {
-                final reservation = res['reservation'] as ReservationModel;
-                if (reservation.status.toLowerCase() == 'confirmed' ||
-                    reservation.status.toLowerCase() == 'confirmée') {
-                  totalReservations++;
-                  totalSeatsBooked += reservation.numberOfSeats;
-                  totalRevenue += reservation.totalPrice;
+      backgroundColor: cream,
+      body: SafeArea(
+        child: StreamBuilder<List<EventModel>>(
+          stream: _eventService.getOrganizerEvents(),
+          builder: (context, eventSnapshot) {
+            return StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _reservationService.getOrganizerReservations(),
+              builder: (context, reservationSnapshot) {
+                if (eventSnapshot.connectionState == ConnectionState.waiting ||
+                    reservationSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(midnightBlue),
+                    ),
+                  );
                 }
-              }
 
-              for (var event in events) {
-                totalCapacity += event.totalPlaces;
-              }
+                final events = eventSnapshot.data ?? [];
+                final reservations = reservationSnapshot.data ?? [];
 
-              final occupancyRate = totalCapacity > 0
-                  ? (totalSeatsBooked / totalCapacity * 100).toStringAsFixed(1)
-                  : '0.0';
+                int totalReservations = 0;
+                int totalSeatsBooked = 0;
+                double totalRevenue = 0;
+                int totalCapacity = 0;
 
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.1),
-                                end: Offset.zero,
-                              ).animate(_fadeAnimation),
-                              child: _buildHeroStats(
-                                events.length,
-                                totalReservations,
-                                totalRevenue,
-                                occupancyRate,
-                              ),
+                for (var res in reservations) {
+                  final reservation = res['reservation'] as ReservationModel;
+                  if (reservation.status.toLowerCase() == 'confirmed' ||
+                      reservation.status.toLowerCase() == 'confirmée') {
+                    totalReservations++;
+                    totalSeatsBooked += reservation.numberOfSeats;
+                    totalRevenue += reservation.totalPrice;
+                  }
+                }
+
+                for (var event in events) {
+                  totalCapacity += event.totalPlaces;
+                }
+
+                final occupancyRate = totalCapacity > 0
+                    ? (totalSeatsBooked / totalCapacity * 100).toStringAsFixed(1)
+                    : '0.0';
+
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // Header
+                      _buildHeader(),
+                      
+                      const SizedBox(height: 8),
+
+                      // Stats Cards
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: _buildStatsGrid(
+                            events.length,
+                            totalReservations,
+                            totalRevenue,
+                            occupancyRate,
+                          ),
+                        ),
+                      ),
+
+                      // Events Performance
+                      if (events.isNotEmpty) ...[
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                            child: _buildSectionHeader(
+                              'Performance des Événements',
+                              'Top 3 des événements les plus performants',
                             ),
                           ),
-                          const SizedBox(height: 32),
-                          if (events.isNotEmpty) ...[
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildSectionHeader(
-                                'Performance des Événements',
-                                'Top 3 des événements les plus performants',
-                              ),
+                        ),
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildEventsPerformance(events, reservations),
+                          ),
+                        ),
+                      ],
+
+                      // Recent Activity
+                      if (reservations.isNotEmpty) ...[
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                            child: _buildSectionHeader(
+                              'Activité Récente',
+                              'Dernières réservations',
                             ),
-                            const SizedBox(height: 16),
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildEventsPerformance(events, reservations),
+                          ),
+                        ),
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildRecentReservations(reservations),
+                          ),
+                        ),
+                      ],
+
+                      // Category Distribution
+                      if (events.isNotEmpty) ...[
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                            child: _buildSectionHeader(
+                              'Distribution par Catégorie',
+                              'Événements par catégorie',
                             ),
-                            const SizedBox(height: 32),
-                          ],
-                          if (reservations.isNotEmpty) ...[
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildSectionHeader(
-                                'Activité Récente',
-                                'Dernières réservations',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildRecentReservations(reservations),
-                            ),
-                            const SizedBox(height: 32),
-                          ],
-                          if (events.isNotEmpty) ...[
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildSectionHeader(
-                                'Distribution par Catégorie',
-                                'Événements par catégorie',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: _buildCategoryStats(events),
-                            ),
-                            const SizedBox(height: 32),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+                          ),
+                        ),
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                            child: _buildCategoryStats(events),
+                          ),
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildHeroStats(
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 16, 24, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cream, creamDark],
+        ),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: midnightBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: midnightBlue,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Statistiques',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: midnightBlue,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  'Analysez vos performances',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid(
     int totalEvents,
     int totalReservations,
     double totalRevenue,
     String occupancyRate,
   ) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 1.1,
+      children: [
+        _buildStatCard(
+          title: 'Événements',
+          value: totalEvents.toString(),
+          icon: Icons.calendar_today_rounded,
+          color: midnightBlue,
+          gradient: [midnightBlue, midnightBlueLight],
+        ),
+        _buildStatCard(
+          title: 'Réservations',
+          value: totalReservations.toString(),
+          icon: Icons.bookmark_rounded,
+          color: success,
+          gradient: [success, success.withOpacity(0.8)],
+        ),
+        _buildStatCard(
+          title: 'Revenus',
+          value: '${totalRevenue.toStringAsFixed(0)} TND',
+          icon: Icons.trending_up_rounded,
+          color: accent,
+          gradient: [accent, accent.withOpacity(0.8)],
+        ),
+        _buildStatCard(
+          title: "Taux d'occupation",
+          value: '$occupancyRate%',
+          icon: Icons.pie_chart_rounded,
+          color: warning,
+          gradient: [warning, warning.withOpacity(0.8)],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required List<Color> gradient,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6366F1),
-            const Color(0xFF8B5CF6),
-            const Color(0xFFA855F7),
-          ],
+          colors: gradient,
         ),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: color.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem(
-                'Events',
-                totalEvents.toString(),
-                Icons.calendar_today,
-              ),
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.white.withOpacity(0.2),
-              ),
-              _buildStatItem(
-                'Bookings',
-                totalReservations.toString(),
-                Icons.bookmark_border,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem(
-                'Revenue',
-                currencyFormat.format(totalRevenue).replaceAll('DT', ''),
-                Icons.trending_up,
-              ),
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.white.withOpacity(0.2),
-              ),
-              _buildStatItem(
-                'Occupancy',
-                '$occupancyRate%',
-                Icons.pie_chart,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, IconData icon) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: Colors.white.withOpacity(0.8), size: 24),
-          const SizedBox(height: 8),
+          Icon(icon, color: Colors.white, size: 32),
+          const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 24,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
               color: Colors.white,
               letterSpacing: -0.5,
@@ -291,12 +345,13 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
           ),
           const SizedBox(height: 4),
           Text(
-            label,
+            title,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.8),
               fontWeight: FontWeight.w500,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -307,22 +362,37 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1A1A2E),
-            letterSpacing: -0.5,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 24,
+              decoration: BoxDecoration(
+                color: midnightBlue,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: midnightBlue,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w400,
+        Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 13,
+              color: textSecondary,
+            ),
           ),
         ),
       ],
@@ -374,12 +444,16 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardWhite,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: midnightBlue.withOpacity(0.1),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -394,9 +468,9 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                     child: Text(
                       event.title,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E),
+                        color: textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -408,12 +482,7 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          _getOccupancyColor(occupancy).withOpacity(0.1),
-                          _getOccupancyColor(occupancy).withOpacity(0.05),
-                        ],
-                      ),
+                      color: _getOccupancyColor(occupancy).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -431,13 +500,13 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
               Row(
                 children: [
                   _buildInfoChip(
-                    Icons.receipt,
-                    '${perf['bookings']} bookings',
+                    Icons.receipt_rounded,
+                    '${perf['bookings']} réservation${(perf['bookings'] as int? ?? 0) > 1 ? 's' : ''}',
                   ),
                   const SizedBox(width: 12),
                   _buildInfoChip(
-                    Icons.event_seat,
-                    '${perf['seatsBooked']}/${event.totalPlaces} seats',
+                    Icons.event_seat_rounded,
+                    '${perf['seatsBooked']}/${event.totalPlaces} places',
                   ),
                 ],
               ),
@@ -447,7 +516,7 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                 child: LinearProgressIndicator(
                   value: occupancy / 100,
                   minHeight: 6,
-                  backgroundColor: Colors.grey[100],
+                  backgroundColor: cream,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     _getOccupancyColor(occupancy),
                   ),
@@ -464,19 +533,19 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FF),
+        color: cream,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.grey[600]),
+          Icon(icon, size: 14, color: textSecondary),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -485,10 +554,10 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
     );
   }
 
-  Color _getOccupancyColor(double occupancy) {
-    if (occupancy > 80) return const Color(0xFF10B981);
-    if (occupancy > 50) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
+  Color _getOccupancyColor(double? occupancy) {
+    if ((occupancy ?? 0) > 80) return success;
+    if ((occupancy ?? 0) > 50) return warning;
+    return error;
   }
 
   Widget _buildRecentReservations(List<Map<String, dynamic>> reservations) {
@@ -514,12 +583,16 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardWhite,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: midnightBlue.withOpacity(0.1),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -527,25 +600,19 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF6366F1).withOpacity(0.1),
-                      const Color(0xFFA855F7).withOpacity(0.1),
-                    ],
-                  ),
+                  color: midnightBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
-                  Icons.person_outline,
-                  color: Color(0xFF6366F1),
+                child: Icon(
+                  Icons.person_rounded,
+                  color: midnightBlue,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,16 +622,18 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E),
+                        color: textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${reservation.numberOfSeats} ${reservation.numberOfSeats > 1 ? 'seats' : 'seat'} · ${event.title}',
+                      '${reservation.numberOfSeats} ${reservation.numberOfSeats > 1 ? 'places' : 'place'} · ${event.title}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: textSecondary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -573,19 +642,19 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    currencyFormat.format(reservation.totalPrice).replaceAll('DT', ''),
+                    '${reservation.totalPrice.toStringAsFixed(0)} TND',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF6366F1),
+                      color: midnightBlue,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('MMM dd').format(reservation.createdAt),
+                    DateFormat('dd MMM', 'fr').format(reservation.createdAt),
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey[500],
+                      color: textSecondary,
                     ),
                   ),
                 ],
@@ -622,12 +691,16 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardWhite,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: midnightBlue.withOpacity(0.1),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.02),
-                blurRadius: 10,
+                blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -641,29 +714,29 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                   Row(
                     children: [
                       Container(
-                        width: 8,
-                        height: 8,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: _getCategoryColor(index),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
                         entry.key,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A2E),
+                          color: textPrimary,
                         ),
                       ),
                     ],
                   ),
                   Text(
-                    '${entry.value} ${entry.value > 1 ? 'events' : 'event'}',
+                    '${entry.value} ${entry.value > 1 ? 'événements' : 'événement'}',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -675,7 +748,7 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                 child: LinearProgressIndicator(
                   value: percentage / 100,
                   minHeight: 6,
-                  backgroundColor: Colors.grey[100],
+                  backgroundColor: cream,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     _getCategoryColor(index),
                   ),
@@ -686,7 +759,7 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
                 '${percentage.toStringAsFixed(1)}%',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -699,11 +772,11 @@ class _OrganizerStatisticsPageState extends State<OrganizerStatisticsPage>
 
   Color _getCategoryColor(int index) {
     const colors = [
-      Color(0xFF6366F1),
+      midnightBlue,
+      success,
+      accent,
+      warning,
       Color(0xFF8B5CF6),
-      Color(0xFFA855F7),
-      Color(0xFFEC4899),
-      Color(0xFFF43F5E),
     ];
     return colors[index % colors.length];
   }

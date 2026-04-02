@@ -5,6 +5,45 @@ import '../../models/event_model.dart';
 import '../../models/reservation_model.dart';
 import 'confirmation_page.dart';
 
+// ─────────────────────────────────────────────────────────────
+// DESIGN SYSTEM - Midnight Blue & White Theme
+// ─────────────────────────────────────────────────────────────
+
+class PaymentTheme {
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textHint = Color(0xFF9CA3AF);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [midnightBlue, midnightBlueLight],
+  );
+  
+  static BoxDecoration cardDecoration = BoxDecoration(
+    color: white,
+    borderRadius: BorderRadius.circular(24),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 20,
+        offset: const Offset(0, 4),
+      ),
+      BoxShadow(
+        color: Colors.black.withOpacity(0.02),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
+}
+
 class PaymentPage extends StatefulWidget {
   final EventModel event;
   final int numberOfSeats;
@@ -90,9 +129,13 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _confirmPayment() async {
     if (!_isFormValid && widget.totalPrice > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez remplir tous les champs correctement'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Veuillez remplir tous les champs correctement'),
+          backgroundColor: PaymentTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       return;
@@ -149,8 +192,16 @@ class _PaymentPageState extends State<PaymentPage> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: PaymentTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -169,50 +220,111 @@ class _PaymentPageState extends State<PaymentPage> {
 
     if (isFree) {
       return Scaffold(
+        backgroundColor: PaymentTheme.cream,
         appBar: AppBar(
-          title: const Text('Confirmation'),
-          backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white,
+          title: const Text(
+            'Confirmation',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          backgroundColor: Colors.transparent,
+          foregroundColor: PaymentTheme.midnightBlue,
+          elevation: 0,
         ),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.confirmation_number_outlined,
-                  size: 80, color: Colors.deepPurple),
-              const SizedBox(height: 20),
-              const Text('Événement gratuit',
-                  style: TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Text(widget.event.title,
-                  style: const TextStyle(
-                      fontSize: 16, color: Colors.black54),
-                  textAlign: TextAlign.center),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      PaymentTheme.midnightBlue.withOpacity(0.1),
+                      PaymentTheme.midnightBlueLight.withOpacity(0.05),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 80,
+                  color: PaymentTheme.midnightBlue,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Événement gratuit',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: PaymentTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.event.title,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: PaymentTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
-              Text('${widget.numberOfSeats} place(s) · Gratuit',
-                  style: const TextStyle(color: Colors.grey)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: PaymentTheme.midnightBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${widget.numberOfSeats} place(s) · Gratuit',
+                  style: TextStyle(
+                    color: PaymentTheme.midnightBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _confirmPayment,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: PaymentTheme.midnightBlue,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirmer gratuitement',
-                          style: TextStyle(fontSize: 16)),
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Confirmer gratuitement',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ],
@@ -222,46 +334,72 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: PaymentTheme.cream,
       appBar: AppBar(
-        title: const Text('Paiement sécurisé'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Paiement sécurisé',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        foregroundColor: PaymentTheme.midnightBlue,
         elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Purple header
+            // Midnight blue header
             Container(
               width: double.infinity,
-              color: Colors.deepPurple,
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+              decoration: BoxDecoration(
+                gradient: PaymentTheme.primaryGradient,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(24),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Récapitulatif',
-                      style:
-                          TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  Text(widget.event.title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
+                  const Text(
+                    'Récapitulatif',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.event.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${widget.numberOfSeats} place(s)',
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 13)),
+                      Text(
+                        '${widget.numberOfSeats} place(s)',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
                       Text(
                         '${widget.totalPrice.toStringAsFixed(0)} TND',
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -274,28 +412,33 @@ class _PaymentPageState extends State<PaymentPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 8),
+                  
                   // Card preview
                   _buildCardPreview(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
                   // Card type selector
-                  const Text('Type de carte',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black54)),
-                  const SizedBox(height: 10),
+                  const Text(
+                    'Type de carte',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: PaymentTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       _cardTypeButton(0, 'Visa', const Color(0xFF1A1F71)),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       _cardTypeButton(
                           1, 'Mastercard', const Color(0xFFEB001B)),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       _cardTypeButton(2, 'Amex', const Color(0xFF007B5E)),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
                   // Card number
                   _buildLabel('Numéro de carte'),
@@ -308,7 +451,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     keyboardType: TextInputType.number,
                     onChanged: _formatCardNumber,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Card holder
                   _buildLabel('Nom du titulaire'),
@@ -320,7 +463,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     textCapitalization: TextCapitalization.characters,
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Expiry + CVV
                   Row(
@@ -363,7 +506,7 @@ class _PaymentPageState extends State<PaymentPage> {
                                       ? Icons.visibility_off
                                       : Icons.visibility,
                                   size: 18,
-                                  color: Colors.grey,
+                                  color: PaymentTheme.textHint,
                                 ),
                                 onPressed: () => setState(
                                     () => _cvvObscured = !_cvvObscured),
@@ -374,20 +517,27 @@ class _PaymentPageState extends State<PaymentPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Security note
                   Row(
-                    children: const [
-                      Icon(Icons.lock, size: 13, color: Colors.green),
-                      SizedBox(width: 6),
+                    children: [
+                      Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: PaymentTheme.success,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'Paiement 100% sécurisé · Simulation uniquement',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: PaymentTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 32),
 
                   // Pay button
                   SizedBox(
@@ -395,37 +545,41 @@ class _PaymentPageState extends State<PaymentPage> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _confirmPayment,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: PaymentTheme.midnightBlue,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: Colors.grey.shade300,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 18),
+                        disabledBackgroundColor: PaymentTheme.textHint,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 2,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Icon(Icons.lock, size: 18),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 10),
                                 Text(
                                   'Payer ${widget.totalPrice.toStringAsFixed(0)} TND',
                                   style: const TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold),
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -446,17 +600,17 @@ class _PaymentPageState extends State<PaymentPage> {
         _expiryController.text.isEmpty ? 'MM/AA' : _expiryController.text;
 
     return Container(
-      height: 190,
+      height: 200,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_cardColor, _cardColor.withOpacity(0.75)],
+          colors: [_cardColor, _cardColor.withOpacity(0.8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: _cardColor.withOpacity(0.4),
+            color: _cardColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -469,50 +623,74 @@ class _PaymentPageState extends State<PaymentPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.wifi, color: Colors.white54, size: 22),
-              Text(_cardBrand,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 2)),
+              const Icon(Icons.wifi, color: Colors.white70, size: 24),
+              Text(
+                _cardBrand,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  letterSpacing: 2,
+                ),
+              ),
             ],
           ),
           const Spacer(),
-          Text(number,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  letterSpacing: 3,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 16),
+          Text(
+            number,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              letterSpacing: 2.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('TITULAIRE',
-                      style:
-                          TextStyle(color: Colors.white54, fontSize: 10)),
-                  Text(holder,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
+                  const Text(
+                    'TITULAIRE',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    holder,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('EXPIRE',
-                      style:
-                          TextStyle(color: Colors.white54, fontSize: 10)),
-                  Text(expiry,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
+                  const Text(
+                    'EXPIRE',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    expiry,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -529,21 +707,24 @@ class _PaymentPageState extends State<PaymentPage> {
         onTap: () => setState(() => _selectedCardType = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? color.withOpacity(0.1) : Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            color: selected ? color.withOpacity(0.1) : PaymentTheme.white,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? color : Colors.grey.shade300,
+              color: selected ? color : PaymentTheme.textHint.withOpacity(0.3),
               width: selected ? 2 : 1,
             ),
           ),
           child: Center(
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? color : Colors.grey)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: selected ? color : PaymentTheme.textSecondary,
+              ),
+            ),
           ),
         ),
       ),
@@ -551,11 +732,14 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Widget _buildLabel(String text) {
-    return Text(text,
-        style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.black54));
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: PaymentTheme.textSecondary,
+      ),
+    );
   }
 
   Widget _buildInput({
@@ -581,27 +765,32 @@ class _PaymentPageState extends State<PaymentPage> {
       },
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.black26, fontSize: 14),
-        prefixIcon: Icon(icon, size: 20, color: Colors.deepPurple),
+        hintStyle: TextStyle(
+          color: PaymentTheme.textHint,
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(
+          icon,
+          size: 20,
+          color: PaymentTheme.midnightBlue,
+        ),
         suffixIcon: suffixIcon,
         counterText: '',
         filled: true,
-        fillColor: Colors.white,
+        fillColor: PaymentTheme.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: PaymentTheme.textHint.withOpacity(0.3)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: PaymentTheme.textHint.withOpacity(0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Colors.deepPurple, width: 1.5),
+          borderSide: const BorderSide(color: PaymentTheme.midnightBlue, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

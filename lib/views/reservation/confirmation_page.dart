@@ -3,6 +3,26 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/reservation_model.dart';
 
+// ─────────────────────────────────────────────────────────────
+// DESIGN SYSTEM - Midnight Blue & White Theme
+// ─────────────────────────────────────────────────────────────
+
+class ConfirmationTheme {
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color success = Color(0xFF10B981);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [midnightBlue, midnightBlueLight],
+  );
+}
+
 class ConfirmationPage extends StatelessWidget {
   final ReservationModel reservation;
 
@@ -16,11 +36,20 @@ class ConfirmationPage extends StatelessWidget {
         'TICKET:${reservation.id}|EVENT:${reservation.eventId}|USER:${reservation.userId}|SEATS:${reservation.numberOfSeats}|REF:$ticketRef';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: ConfirmationTheme.cream,
       appBar: AppBar(
-        title: const Text('Billet confirmé'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Billet confirmé',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        foregroundColor: ConfirmationTheme.midnightBlue,
+        elevation: 0,
+        centerTitle: false,
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -32,71 +61,117 @@ class ConfirmationPage extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.green.shade200),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    ConfirmationTheme.success.withOpacity(0.1),
+                    ConfirmationTheme.success.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: ConfirmationTheme.success.withOpacity(0.3),
+                  width: 1,
+                ),
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 52),
-                  const SizedBox(height: 10),
-                  const Text('Réservation confirmée !',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green)),
-                  const SizedBox(height: 4),
-                  Text(reservation.eventTitle,
-                      style: const TextStyle(color: Colors.black54, fontSize: 14),
-                      textAlign: TextAlign.center),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: ConfirmationTheme.success.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: ConfirmationTheme.success,
+                      size: 48,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Réservation confirmée !',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: ConfirmationTheme.success,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    reservation.eventTitle,
+                    style: TextStyle(
+                      color: ConfirmationTheme.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Ticket card
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                color: ConfirmationTheme.white,
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.07),
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Column(
                 children: [
-                  // Ticket header (purple)
+                  // Ticket header (midnight blue gradient)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: const BoxDecoration(
-                      color: Colors.deepPurple,
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(20)),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: ConfirmationTheme.primaryGradient,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('E-BILLET',
-                            style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 11,
-                                letterSpacing: 2)),
-                        const SizedBox(height: 4),
-                        Text(reservation.eventTitle,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
+                        const Text(
+                          'E-BILLET',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 8),
+                        Text(
+                          reservation.eventTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(20),
@@ -104,10 +179,11 @@ class ConfirmationPage extends StatelessWidget {
                           child: Text(
                             'Réf: $ticketRef',
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1),
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
                       ],
@@ -119,27 +195,38 @@ class ConfirmationPage extends StatelessWidget {
 
                   // QR Code
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    padding: const EdgeInsets.symmetric(vertical: 28),
                     child: Column(
                       children: [
-                        QrImageView(
-                          data: qrData,
-                          version: QrVersions.auto,
-                          size: 180,
-                          backgroundColor: Colors.white,
-                          eyeStyle: const QrEyeStyle(
-                            eyeShape: QrEyeShape.square,
-                            color: Colors.deepPurple,
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: ConfirmationTheme.cream,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          dataModuleStyle: const QrDataModuleStyle(
-                            dataModuleShape: QrDataModuleShape.square,
-                            color: Color(0xFF2D2D2D),
+                          child: QrImageView(
+                            data: qrData,
+                            version: QrVersions.auto,
+                            size: 200,
+                            backgroundColor: Colors.white,
+                            eyeStyle: QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: ConfirmationTheme.midnightBlue,
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF2D2D2D),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Scannez ce QR pour voir les détails du billet',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Scannez ce QR code pour valider votre billet',
+                          style: TextStyle(
+                            color: ConfirmationTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -151,15 +238,21 @@ class ConfirmationPage extends StatelessWidget {
 
                   // Ticket details
                   Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        _ticketRow(Icons.person_outline, 'Titulaire',
-                            reservation.userName),
-                        const SizedBox(height: 14),
-                        _ticketRow(Icons.event_seat_outlined, 'Places',
-                            '${reservation.numberOfSeats} place(s)'),
-                        const SizedBox(height: 14),
+                        _ticketRow(
+                          Icons.person_outline,
+                          'Titulaire',
+                          reservation.userName,
+                        ),
+                        const SizedBox(height: 16),
+                        _ticketRow(
+                          Icons.event_seat_outlined,
+                          'Places',
+                          '${reservation.numberOfSeats} place(s)',
+                        ),
+                        const SizedBox(height: 16),
                         _ticketRow(
                           Icons.payments_outlined,
                           'Montant',
@@ -167,19 +260,19 @@ class ConfirmationPage extends StatelessWidget {
                               ? 'Gratuit'
                               : '${reservation.totalPrice.toStringAsFixed(0)} TND',
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         _ticketRow(
                           Icons.access_time,
                           'Réservé le',
-                          DateFormat('dd MMM yyyy à HH:mm', 'fr')
+                          DateFormat('dd MMM yyyy', 'fr')
                               .format(reservation.createdAt),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         _ticketRow(
                           Icons.check_circle_outline,
                           'Statut',
                           'Confirmé',
-                          valueColor: Colors.green,
+                          valueColor: ConfirmationTheme.success,
                         ),
                       ],
                     ),
@@ -188,23 +281,33 @@ class ConfirmationPage extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // Buttons
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () =>
-                    Navigator.popUntil(context, (r) => r.isFirst),
+                onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: ConfirmationTheme.midnightBlue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
                 ),
-                child: const Text("Retour à l'accueil",
-                    style: TextStyle(fontSize: 16)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.home_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      "Retour à l'accueil",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -213,14 +316,31 @@ class ConfirmationPage extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(context),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.deepPurple),
+                  side: BorderSide(color: ConfirmationTheme.midnightBlue, width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: const Text('Voir mes réservations',
-                    style:
-                        TextStyle(color: Colors.deepPurple, fontSize: 16)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.bookmark_outline,
+                      color: ConfirmationTheme.midnightBlue,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Voir mes réservations',
+                      style: TextStyle(
+                        color: ConfirmationTheme.midnightBlue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -234,16 +354,36 @@ class ConfirmationPage extends StatelessWidget {
       {Color? valueColor}) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.deepPurple),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: ConfirmationTheme.midnightBlue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: ConfirmationTheme.midnightBlue,
+          ),
+        ),
         const SizedBox(width: 12),
-        Text(label,
-            style: const TextStyle(color: Colors.black54, fontSize: 14)),
+        Text(
+          label,
+          style: TextStyle(
+            color: ConfirmationTheme.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const Spacer(),
-        Text(value,
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: valueColor ?? Colors.black87)),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: valueColor ?? ConfirmationTheme.textPrimary,
+          ),
+        ),
       ],
     );
   }
@@ -258,9 +398,9 @@ class _DashedDivider extends StatelessWidget {
           width: 20,
           height: 20,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: ConfirmationTheme.cream,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: ConfirmationTheme.midnightBlue.withOpacity(0.2)),
           ),
         ),
         Expanded(
@@ -274,7 +414,7 @@ class _DashedDivider extends StatelessWidget {
                   (_) => Container(
                     width: 4,
                     height: 1,
-                    color: Colors.grey.shade300,
+                    color: ConfirmationTheme.midnightBlue.withOpacity(0.2),
                   ),
                 ),
               );
@@ -285,9 +425,9 @@ class _DashedDivider extends StatelessWidget {
           width: 20,
           height: 20,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: ConfirmationTheme.cream,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: ConfirmationTheme.midnightBlue.withOpacity(0.2)),
           ),
         ),
       ],

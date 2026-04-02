@@ -103,8 +103,8 @@ class _EditEventPageState extends State<EditEventPage>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF6366F1),
-              onPrimary: Colors.white,
+              primary: Color(0xFF081F5C),
+              onPrimary: Color(0xFFF8F3EA),
               surface: Colors.white,
             ),
           ),
@@ -127,8 +127,8 @@ class _EditEventPageState extends State<EditEventPage>
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF6366F1),
-              onPrimary: Colors.white,
+              primary: Color(0xFF081F5C),
+              onPrimary: Color(0xFFF8F3EA),
             ),
           ),
           child: child!,
@@ -184,7 +184,7 @@ class _EditEventPageState extends State<EditEventPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Event updated successfully!'),
+            content: const Text('Événement mis à jour avec succès !'),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -196,7 +196,7 @@ class _EditEventPageState extends State<EditEventPage>
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Error: $e');
+        _showErrorSnackBar('Erreur: $e');
       }
     } finally {
       if (mounted) {
@@ -210,19 +210,20 @@ class _EditEventPageState extends State<EditEventPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FF),
+      backgroundColor: const Color(0xFFF8F3EA),
       appBar: AppBar(
         title: const Text(
-          'Edit Event',
+          'Modifier l\'événement',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
+            color: Color(0xFF081F5C),
           ),
         ),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF1A1A2E),
+        foregroundColor: const Color(0xFF081F5C),
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         centerTitle: false,
         toolbarHeight: 100,
@@ -232,8 +233,8 @@ class _EditEventPageState extends State<EditEventPage>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF8F9FF),
-                Color(0xFFF0F2FF),
+                Color(0xFFF8F3EA),
+                Color(0xFFF5EDE2),
               ],
             ),
           ),
@@ -261,20 +262,20 @@ class _EditEventPageState extends State<EditEventPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Edit Event Details',
+                          'Modifier les détails',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
+                            color: const Color(0xFF081F5C),
                             letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Update the information below to modify your event',
+                          'Mettez à jour les informations de votre événement',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[600],
+                            color: const Color(0xFF081F5C).withOpacity(0.6),
                           ),
                         ),
                       ],
@@ -284,15 +285,15 @@ class _EditEventPageState extends State<EditEventPage>
                   // Title Field
                   _buildInputField(
                     controller: _titleController,
-                    label: 'Event Title',
+                    label: 'Nom de l\'événement',
                     icon: Icons.title,
-                    hint: 'Update your event title',
+                    hint: 'Titre de l\'événement',
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Title is required';
+                        return 'Le titre est requis';
                       }
                       if (value.length < 3) {
-                        return 'Title must be at least 3 characters';
+                        return 'Le titre doit comporter au moins 3 caractères';
                       }
                       return null;
                     },
@@ -302,7 +303,7 @@ class _EditEventPageState extends State<EditEventPage>
                   // Category Dropdown
                   _buildDropdownField(
                     value: _selectedCategory,
-                    label: 'Category',
+                    label: 'Catégorie',
                     icon: Icons.category,
                     items: categories,
                     onChanged: (value) {
@@ -318,14 +319,14 @@ class _EditEventPageState extends State<EditEventPage>
                     controller: _descriptionController,
                     label: 'Description',
                     icon: Icons.description,
-                    hint: 'Describe what attendees can expect',
+                    hint: 'Description détaillée',
                     maxLines: 4,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Description is required';
+                        return 'La description est requise';
                       }
                       if (value.length < 10) {
-                        return 'Description must be at least 10 characters';
+                        return 'La description doit comporter au moins 10 caractères';
                       }
                       return null;
                     },
@@ -346,7 +347,7 @@ class _EditEventPageState extends State<EditEventPage>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withOpacity(0.05),
+                              color: const Color(0xFF081F5C).withOpacity(0.05),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -355,14 +356,14 @@ class _EditEventPageState extends State<EditEventPage>
                                 Icon(
                                   Icons.location_on,
                                   size: 12,
-                                  color: const Color(0xFF6366F1),
+                                  color: const Color(0xFF081F5C),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Coordinates: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                                  'Coordonnées: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[600],
+                                    color: const Color(0xFF081F5C).withOpacity(0.6),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -391,16 +392,16 @@ class _EditEventPageState extends State<EditEventPage>
                   // Capacity Field
                   _buildInputField(
                     controller: _capacityController,
-                    label: 'Capacity',
+                    label: 'Capacité',
                     icon: Icons.people,
-                    hint: 'Number of seats available',
+                    hint: 'Nombre de places',
                     keyboardType: TextInputType.number,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Capacity is required';
+                        return 'La capacité est requise';
                       }
                       if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                        return 'Enter a valid number greater than 0';
+                        return 'Entrez un nombre valide supérieur à 0';
                       }
                       return null;
                     },
@@ -434,26 +435,26 @@ class _EditEventPageState extends State<EditEventPage>
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      const Color(0xFF6366F1).withOpacity(0.1),
-                                      const Color(0xFF8B5CF6).withOpacity(0.1),
+                                      const Color(0xFF081F5C).withOpacity(0.1),
+                                      const Color(0xFF1A3A7C).withOpacity(0.1),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
                                   _isFree ? Icons.celebration : Icons.attach_money,
-                                  color: const Color(0xFF6366F1),
+                                  color: const Color(0xFF081F5C),
                                   size: 20,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'Free Event',
+                                  'Événement gratuit',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[800],
+                                    color: const Color(0xFF081F5C),
                                   ),
                                 ),
                               ),
@@ -467,7 +468,7 @@ class _EditEventPageState extends State<EditEventPage>
                                     }
                                   });
                                 },
-                                activeColor: const Color(0xFF6366F1),
+                                activeColor: const Color(0xFF081F5C),
                               ),
                             ],
                           ),
@@ -477,20 +478,20 @@ class _EditEventPageState extends State<EditEventPage>
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             child: _buildInputField(
                               controller: _priceController,
-                              label: 'Price',
+                              label: 'Prix',
                               icon: Icons.attach_money,
-                              hint: 'Price in TND',
+                              hint: 'Prix en TND',
                               prefixText: 'TND ',
                               keyboardType: TextInputType.number,
                               validator: (value) {
                                 if (!_isFree &&
                                     (value == null || value.isEmpty)) {
-                                  return 'Price is required';
+                                  return 'Le prix est requis';
                                 }
                                 if (value != null &&
                                     value.isNotEmpty &&
                                     double.tryParse(value) == null) {
-                                  return 'Enter a valid price';
+                                  return 'Entrez un prix valide';
                                 }
                                 return null;
                               },
@@ -513,16 +514,16 @@ class _EditEventPageState extends State<EditEventPage>
                               borderRadius: BorderRadius.circular(16),
                             ),
                             side: BorderSide(
-                              color: Colors.grey[300]!,
+                              color: const Color(0xFF081F5C).withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),
                           child: Text(
-                            'Cancel',
+                            'Annuler',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey[700],
+                              color: const Color(0xFF081F5C),
                             ),
                           ),
                         ),
@@ -532,7 +533,7 @@ class _EditEventPageState extends State<EditEventPage>
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _submitForm,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
+                            backgroundColor: const Color(0xFF081F5C),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -546,14 +547,15 @@ class _EditEventPageState extends State<EditEventPage>
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor:
-                                        AlwaysStoppedAnimation(Colors.white),
+                                        AlwaysStoppedAnimation(Color(0xFFF8F3EA)),
                                   ),
                                 )
                               : const Text(
-                                  'Save Changes',
+                                  'Enregistrer',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
+                                    color: Color(0xFFF8F3EA),
                                   ),
                                 ),
                         ),
@@ -598,11 +600,12 @@ class _EditEventPageState extends State<EditEventPage>
         validator: validator,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(color: const Color(0xFF081F5C).withOpacity(0.7)),
           hintText: hint,
-          prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+          prefixIcon: Icon(icon, color: const Color(0xFF081F5C), size: 20),
           prefixText: prefixText,
           prefixStyle: TextStyle(
-            color: Colors.grey[600],
+            color: const Color(0xFF081F5C).withOpacity(0.6),
             fontWeight: FontWeight.w500,
           ),
           border: OutlineInputBorder(
@@ -615,7 +618,7 @@ class _EditEventPageState extends State<EditEventPage>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF081F5C), width: 1.5),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -652,7 +655,8 @@ class _EditEventPageState extends State<EditEventPage>
         value: value,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF6366F1), size: 20),
+          labelStyle: TextStyle(color: const Color(0xFF081F5C).withOpacity(0.7)),
+          prefixIcon: Icon(icon, color: const Color(0xFF081F5C), size: 20),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide.none,
@@ -663,7 +667,7 @@ class _EditEventPageState extends State<EditEventPage>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFF081F5C), width: 1.5),
           ),
           filled: true,
           fillColor: Colors.white,
@@ -680,7 +684,7 @@ class _EditEventPageState extends State<EditEventPage>
             onChanged(newValue);
           }
         },
-        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6366F1)),
+        icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF081F5C)),
         dropdownColor: Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
@@ -726,14 +730,15 @@ class _EditEventPageState extends State<EditEventPage>
           readOnly: true,
           validator: (value) {
             if (value == null || value.isEmpty) {
-              return 'Location is required';
+              return 'Le lieu est requis';
             }
             return null;
           },
           decoration: InputDecoration(
-            labelText: 'Location',
-            hintText: 'Tap to select location',
-            prefixIcon: const Icon(Icons.location_on, color: Color(0xFF6366F1), size: 20),
+            labelText: 'Lieu',
+            labelStyle: TextStyle(color: const Color(0xFF081F5C).withOpacity(0.7)),
+            hintText: 'Cliquez pour choisir un lieu',
+            prefixIcon: const Icon(Icons.location_on, color: Color(0xFF081F5C), size: 20),
             suffixIcon: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -741,15 +746,15 @@ class _EditEventPageState extends State<EditEventPage>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF6366F1),
-                    const Color(0xFF8B5CF6),
+                    const Color(0xFF081F5C),
+                    const Color(0xFF1A3A7C),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.arrow_forward,
-                color: Colors.white,
+                color: Color(0xFFF8F3EA),
                 size: 18,
               ),
             ),
@@ -763,7 +768,7 @@ class _EditEventPageState extends State<EditEventPage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(20),
-              borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+              borderSide: const BorderSide(color: Color(0xFF081F5C), width: 1.5),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -792,7 +797,8 @@ class _EditEventPageState extends State<EditEventPage>
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: 'Date',
-            prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF6366F1), size: 20),
+            labelStyle: TextStyle(color: const Color(0xFF081F5C).withOpacity(0.7)),
+            prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF081F5C), size: 20),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(20),
               borderSide: BorderSide.none,
@@ -805,7 +811,7 @@ class _EditEventPageState extends State<EditEventPage>
             DateFormat('dd MMM yyyy').format(_selectedDate),
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[800],
+              color: const Color(0xFF081F5C),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -831,8 +837,9 @@ class _EditEventPageState extends State<EditEventPage>
         ),
         child: InputDecorator(
           decoration: InputDecoration(
-            labelText: 'Time',
-            prefixIcon: const Icon(Icons.access_time, color: Color(0xFF6366F1), size: 20),
+            labelText: 'Heure',
+            labelStyle: TextStyle(color: const Color(0xFF081F5C).withOpacity(0.7)),
+            prefixIcon: const Icon(Icons.access_time, color: Color(0xFF081F5C), size: 20),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(20),
               borderSide: BorderSide.none,
@@ -845,7 +852,7 @@ class _EditEventPageState extends State<EditEventPage>
             _selectedTime.format(context),
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[800],
+              color: const Color(0xFF081F5C),
               fontWeight: FontWeight.w500,
             ),
           ),
