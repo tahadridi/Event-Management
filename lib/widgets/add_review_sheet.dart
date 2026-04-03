@@ -26,9 +26,7 @@ class _AddReviewSheetState extends State<AddReviewSheet> {
 
   // Color palette
   static const Color midnightBlue = Color(0xFF081F5C);
-  static const Color midnightBlueLight = Color(0xFF1A3A7C);
   static const Color cream = Color(0xFFF8F3EA);
-  static const Color accent = Color(0xFFE67E22);
   static const Color starColor = Color(0xFFFFB800);
   static const Color textPrimary = Color(0xFF1F2937);
   static const Color textSecondary = Color(0xFF6B7280);

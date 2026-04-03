@@ -3,8 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' as Math;
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';

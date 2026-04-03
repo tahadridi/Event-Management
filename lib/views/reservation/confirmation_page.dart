@@ -252,6 +252,14 @@ class ConfirmationPage extends StatelessWidget {
                           'Places',
                           '${reservation.numberOfSeats} place(s)',
                         ),
+                        if (reservation.selectedSeats.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _ticketRow(
+                            Icons.chair_alt_rounded,
+                            'Sièges',
+                            reservation.selectedSeats.join(', '),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         _ticketRow(
                           Icons.payments_outlined,

@@ -39,7 +39,7 @@ class EventService {
   }
 
   // Créer un nouvel événement
-Future<void> createEvent({
+Future<String> createEvent({
   required String title,
   required String description,
   required String category,
@@ -50,7 +50,12 @@ Future<void> createEvent({
   required double price,
   double? latitude,
   double? longitude,
-  String? imageUrl, // Add this parameter
+  String? imageUrl,
+  bool hasSeats = false,
+  int numberOfRows = 0,
+  int seatsPerRow = 0,
+  double frontSeatPrice = 0.0,
+  double regularSeatPrice = 0.0,
 }) async {
   try {
     final User? currentUser = _auth.currentUser;
@@ -69,7 +74,7 @@ Future<void> createEvent({
     final userDoc = await _db.collection('users').doc(currentUser.uid).get();
     final organizerName = userDoc.data()?['name'] ?? 'Organisateur';
 
-    await _db.collection('events').add({
+    final docRef = await _db.collection('events').add({
       'title': title,
       'description': description,
       'category': category,
@@ -83,8 +88,15 @@ Future<void> createEvent({
       'organizerId': currentUser.uid,
       'organizerName': organizerName,
       'createdAt': Timestamp.now(),
-      'imageUrl': imageUrl ?? '', 
+      'imageUrl': imageUrl ?? '',
+      'hasSeats': hasSeats,
+      'numberOfRows': numberOfRows,
+      'seatsPerRow': seatsPerRow,
+      'frontSeatPrice': frontSeatPrice,
+      'regularSeatPrice': regularSeatPrice,
     });
+
+    return docRef.id;
   } catch (e) {
     throw Exception('Erreur lors de la création de l\'événement: $e');
   }
@@ -284,6 +296,11 @@ Future<void> createEvent({
     required double price,
     double? latitude,
     double? longitude,
+    bool? hasSeats,
+    int? numberOfRows,
+    int? seatsPerRow,
+    double? frontSeatPrice,
+    double? regularSeatPrice,
   }) async {
     try {
       final User? currentUser = _auth.currentUser;
@@ -321,6 +338,11 @@ Future<void> createEvent({
         'date': Timestamp.fromDate(eventDateTime),
         'totalPlaces': totalPlaces,
         'price': price,
+        'hasSeats': hasSeats ?? false,
+        'numberOfRows': numberOfRows ?? 0,
+        'seatsPerRow': seatsPerRow ?? 0,
+        'frontSeatPrice': frontSeatPrice ?? 0.0,
+        'regularSeatPrice': regularSeatPrice ?? 0.0,
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {

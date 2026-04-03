@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/event_model.dart';
+import '../../models/seat_model.dart';
 import '../../models/reservation_model.dart';
 import 'confirmation_page.dart';
 
@@ -48,12 +49,14 @@ class PaymentPage extends StatefulWidget {
   final EventModel event;
   final int numberOfSeats;
   final double totalPrice;
+  final List<SeatModel>? selectedSeats;
 
   const PaymentPage({
     super.key,
     required this.event,
     required this.numberOfSeats,
     required this.totalPrice,
+    this.selectedSeats,
   });
 
   @override
@@ -147,6 +150,8 @@ class _PaymentPageState extends State<PaymentPage> {
       final user = FirebaseAuth.instance.currentUser!;
       await Future.delayed(const Duration(seconds: 2));
 
+      final selectedSeatNumbers = widget.selectedSeats?.map((s) => s.seatNumber).toList() ?? [];
+
       final docRef = await FirebaseFirestore.instance
           .collection('reservations')
           .add({
@@ -158,6 +163,7 @@ class _PaymentPageState extends State<PaymentPage> {
         'totalPrice': widget.totalPrice,
         'status': 'confirmed',
         'organizerId': widget.event.organizerId,
+        'selectedSeats': selectedSeatNumbers,
         'createdAt': Timestamp.now(),
       });
 
@@ -180,6 +186,7 @@ class _PaymentPageState extends State<PaymentPage> {
         status: 'confirmed',
         createdAt: DateTime.now(),
         organizerId: widget.event.organizerId,
+        selectedSeats: selectedSeatNumbers,
       );
 
       if (mounted) {

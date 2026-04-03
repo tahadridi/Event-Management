@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/event_model.dart';
+import '../../models/reservation_model.dart';
 import '../../services/review_service.dart';
 import '../../services/user_service.dart';
+import '../../services/reservation_service.dart';
 import '../../views/reservation/booking_page.dart';
 import '../../widgets/add_review_sheet.dart';
 import '../../widgets/reviews_list.dart';
@@ -26,6 +28,7 @@ class _EventDetailPageState extends State<EventDetailPage>
     with TickerProviderStateMixin {
   final ReviewService _reviewService = ReviewService();
   final UserService _userService = UserService();
+  final ReservationService _reservationService = ReservationService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _isFavorite = false;
@@ -33,6 +36,7 @@ class _EventDetailPageState extends State<EventDetailPage>
   int _reviewCount = 0;
   bool _hasReviewed = false;
   bool _initialLoadDone = false;
+  ReservationModel? _userReservation;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -94,12 +98,14 @@ class _EventDetailPageState extends State<EventDetailPage>
           await _reviewService.getAverageRatingAndCount(widget.event.id);
       final hasReviewedRes =
           await _reviewService.hasUserReviewed(widget.event.id);
+      final userReserv = await _reservationService.getUserReservationForEvent(widget.event.id);
       if (mounted) {
         setState(() {
           _isFavorite = isFavRes;
           _averageRating = ratingRes['rating'] as double;
           _reviewCount = ratingRes['count'] as int;
           _hasReviewed = hasReviewedRes;
+          _userReservation = userReserv;
           _initialLoadDone = true;
         });
       }
@@ -638,6 +644,126 @@ class _EventDetailPageState extends State<EventDetailPage>
                               ],
                             ),
                           ),
+
+                          const SizedBox(height: 20),
+
+                          // User's reserved seats section
+                          if (_userReservation != null)
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 4,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: success,
+                                          borderRadius:
+                                              BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Text(
+                                        'Vos places',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _userReservation!.status.toLowerCase() == 'confirmed' ||
+                                                  _userReservation!.status.toLowerCase() == 'confirmée'
+                                              ? success.withOpacity(0.1)
+                                              : accent.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          _userReservation!.status.toLowerCase() == 'confirmed' ||
+                                                  _userReservation!.status.toLowerCase() == 'confirmée'
+                                              ? 'Confirmée'
+                                              : 'En attente',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _userReservation!.status.toLowerCase() == 'confirmed' ||
+                                                    _userReservation!.status.toLowerCase() == 'confirmée'
+                                                ? success
+                                                : accent,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: _userReservation!.selectedSeats
+                                        .map((seatNumber) => Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 10,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: success
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: success.withOpacity(0.3),
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: Column(
+                                                children: [
+                                                  Text(
+                                                    seatNumber,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: success,
+                                                    ),
+                                                  ),
+                                                  const Text(
+                                                    'Place',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                           const SizedBox(height: 20),
 

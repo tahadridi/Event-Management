@@ -23,11 +23,16 @@ class _EditEventPageState extends State<EditEventPage>
   late TextEditingController _locationController;
   late TextEditingController _capacityController;
   late TextEditingController _priceController;
+  late TextEditingController _numberOfRowsController;
+  late TextEditingController _seatsPerRowController;
+  late TextEditingController _frontSeatPriceController;
+  late TextEditingController _regularSeatPriceController;
 
   late String _selectedCategory;
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
   late bool _isFree;
+  late bool _hasSeats;
   bool _isLoading = false;
   late double? _latitude;
   late double? _longitude;
@@ -60,11 +65,24 @@ class _EditEventPageState extends State<EditEventPage>
     _priceController = TextEditingController(
       text: widget.event.price.toStringAsFixed(2),
     );
+    _numberOfRowsController = TextEditingController(
+      text: widget.event.numberOfRows.toString(),
+    );
+    _seatsPerRowController = TextEditingController(
+      text: widget.event.seatsPerRow.toString(),
+    );
+    _frontSeatPriceController = TextEditingController(
+      text: widget.event.frontSeatPrice.toStringAsFixed(2),
+    );
+    _regularSeatPriceController = TextEditingController(
+      text: widget.event.regularSeatPrice.toStringAsFixed(2),
+    );
 
     _selectedCategory = widget.event.category;
     _selectedDate = widget.event.date;
     _selectedTime = TimeOfDay.fromDateTime(widget.event.date);
     _isFree = widget.event.price == 0;
+    _hasSeats = widget.event.hasSeats;
     _latitude = widget.event.latitude;
     _longitude = widget.event.longitude;
 
@@ -89,6 +107,10 @@ class _EditEventPageState extends State<EditEventPage>
     _locationController.dispose();
     _capacityController.dispose();
     _priceController.dispose();
+    _numberOfRowsController.dispose();
+    _seatsPerRowController.dispose();
+    _frontSeatPriceController.dispose();
+    _regularSeatPriceController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -167,6 +189,16 @@ class _EditEventPageState extends State<EditEventPage>
     });
 
     try {
+      // Validate seating configuration if hasSeats is enabled
+      if (_hasSeats) {
+        if (_numberOfRowsController.text.isEmpty || _seatsPerRowController.text.isEmpty ||
+            _frontSeatPriceController.text.isEmpty || _regularSeatPriceController.text.isEmpty) {
+          setState(() => _isLoading = false);
+          _showErrorSnackBar('Veuillez remplir tous les champs de configuration des sièges');
+          return;
+        }
+      }
+
       await _eventService.updateEvent(
         eventId: widget.event.id,
         title: _titleController.text,
@@ -176,9 +208,14 @@ class _EditEventPageState extends State<EditEventPage>
         date: _selectedDate,
         time: _selectedTime,
         totalPlaces: int.parse(_capacityController.text),
-        price: _isFree ? 0.0 : double.parse(_priceController.text),
+        price: (_hasSeats || _isFree) ? 0.0 : double.parse(_priceController.text),
         latitude: _latitude,
         longitude: _longitude,
+        hasSeats: _hasSeats,
+        numberOfRows: _hasSeats ? int.parse(_numberOfRowsController.text) : 0,
+        seatsPerRow: _hasSeats ? int.parse(_seatsPerRowController.text) : 0,
+        frontSeatPrice: _hasSeats ? double.parse(_frontSeatPriceController.text) : 0.0,
+        regularSeatPrice: _hasSeats ? double.parse(_regularSeatPriceController.text) : 0.0,
       );
 
       if (mounted) {

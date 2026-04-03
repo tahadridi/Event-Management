@@ -9,6 +9,7 @@ class EventCard extends StatelessWidget {
   final VoidCallback? onFavoriteTap;
   final double rating;
   final int reviewCount;
+  final bool hasUserReservation;
 
   const EventCard({
     super.key,
@@ -18,7 +19,24 @@ class EventCard extends StatelessWidget {
     this.onFavoriteTap,
     this.rating = 0,
     this.reviewCount = 0,
+    this.hasUserReservation = false,
   });
+
+  // Badge status
+  String get _badgeText {
+    if (hasUserReservation) return 'Réservé';
+    if (event.availablePlaces == 0) return 'Complet';
+    if (event.availablePlaces <= (event.totalPlaces * 0.2)) return 'Dernières places';
+    if (event.availablePlaces < event.totalPlaces) return 'Quelques places';
+    return 'Disponible';
+  }
+
+  Color get _badgeColor {
+    if (hasUserReservation) return const Color(0xFF3B82F6); // Blue for user reservations
+    if (event.availablePlaces == 0) return const Color(0xFF6B7280);
+    if (event.availablePlaces <= (event.totalPlaces * 0.2)) return const Color(0xFFF59E0B);
+    return const Color(0xFF10B981);
+  }
 
   // Color palette - Midnight Blue & Cream
   static const Color midnightBlue = Color(0xFF081F5C);
@@ -139,6 +157,29 @@ class EventCard extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                          // Status badge - small screen
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _badgeColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _badgeText,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -285,6 +326,7 @@ class EventCard extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
@@ -363,6 +405,29 @@ class EventCard extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                          // Status badge - large screen
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _badgeColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _badgeText,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),

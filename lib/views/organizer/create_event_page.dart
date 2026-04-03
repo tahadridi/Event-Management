@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../services/event_service.dart';
+import '../../services/seat_service.dart';
 import 'place_picker_page.dart';
 
 class CreateEventPage extends StatefulWidget {
@@ -23,11 +24,16 @@ class _CreateEventPageState extends State<CreateEventPage>
   final _locationController = TextEditingController();
   final _capacityController = TextEditingController();
   final _priceController = TextEditingController();
+  final _seatsPerRowController = TextEditingController();
+  final _numberOfRowsController = TextEditingController();
+  final _frontSeatPriceController = TextEditingController();
+  final _regularSeatPriceController = TextEditingController();
 
   String _selectedCategory = 'Conférence';
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   bool _isFree = false;
+  bool _hasSeats = false;
   bool _isLoading = false;
   double? _latitude;
   double? _longitude;
@@ -89,6 +95,10 @@ class _CreateEventPageState extends State<CreateEventPage>
     _locationController.dispose();
     _capacityController.dispose();
     _priceController.dispose();
+    _seatsPerRowController.dispose();
+    _numberOfRowsController.dispose();
+    _frontSeatPriceController.dispose();
+    _regularSeatPriceController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -121,16 +131,14 @@ class _CreateEventPageState extends State<CreateEventPage>
   });
   
   try {
-    // Vérifier que le fichier existe
     if (!await _selectedImage!.exists()) {
       throw Exception('Le fichier image n\'existe pas');
     }
     
-    // Vérifier la taille du fichier
     final fileSize = await _selectedImage!.length();
     print('Taille du fichier: ${fileSize / (1024 * 1024)} MB');
     
-    if (fileSize > 10 * 1024 * 1024) { // Limite de 10 MB
+    if (fileSize > 10 * 1024 * 1024) {
       throw Exception('L\'image est trop volumineuse (max 10 MB)');
     }
     
@@ -140,25 +148,20 @@ class _CreateEventPageState extends State<CreateEventPage>
     
     print('Tentative d\'upload vers: $storagePath');
     
-    // Upload avec progression
     final UploadTask uploadTask = ref.putFile(_selectedImage!);
     
-    // Écouter la progression (optionnel)
     uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
       print('Progression: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
     });
     
-    // Attendre la fin de l'upload
     final TaskSnapshot snapshot = await uploadTask;
     
-    // Vérifier que l'upload a réussi
     if (snapshot.state != TaskState.success) {
       throw Exception('Échec du téléchargement: ${snapshot.state}');
     }
     
     print('Upload terminé avec succès, récupération de l\'URL...');
     
-    // Récupérer l'URL de téléchargement
     final String downloadUrl = await ref.getDownloadURL();
     print('URL obtenue: $downloadUrl');
     
@@ -205,6 +208,7 @@ class _CreateEventPageState extends State<CreateEventPage>
     return null;
   }
 }
+
   void _showImagePickerDialog() {
     showModalBottomSheet(
       context: context,
@@ -354,6 +358,15 @@ class _CreateEventPageState extends State<CreateEventPage>
         return;
       }
 
+      if (_latitude == null || _longitude == null) {
+        _showErrorSnackBar('Veuillez sélectionner un lieu sur la carte');
+        return;
+      }
+
+      if (!_validateSeatsConfig()) {
+        return;
+      }
+
       String? finalImageUrl = _imageUrl;
       if (_selectedImage != null && _imageUrl == null) {
         finalImageUrl = await _uploadImage();
@@ -365,6 +378,49 @@ class _CreateEventPageState extends State<CreateEventPage>
 
       _createEvent(finalImageUrl);
     }
+  }
+
+  bool _validateSeatsConfig() {
+    if (!_hasSeats) return true;
+    
+    if (_numberOfRowsController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le nombre de rangées');
+      return false;
+    }
+    if (_seatsPerRowController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le nombre de places par rangée');
+      return false;
+    }
+    if (_frontSeatPriceController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le prix des sièges avant');
+      return false;
+    }
+    if (_regularSeatPriceController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le prix des sièges réguliers');
+      return false;
+    }
+
+    final rows = int.tryParse(_numberOfRowsController.text) ?? 0;
+    final seats = int.tryParse(_seatsPerRowController.text) ?? 0;
+    
+    if (rows <= 0 || rows > 26) {
+      _showErrorSnackBar('Le nombre de rangées doit être entre 1 et 26');
+      return false;
+    }
+    if (seats <= 0 || seats > 20) {
+      _showErrorSnackBar('Le nombre de places par rangée doit être entre 1 et 20');
+      return false;
+    }
+    if (double.tryParse(_frontSeatPriceController.text) == null) {
+      _showErrorSnackBar('Prix siège avant invalide');
+      return false;
+    }
+    if (double.tryParse(_regularSeatPriceController.text) == null) {
+      _showErrorSnackBar('Prix siège régulier invalide');
+      return false;
+    }
+    
+    return true;
   }
 
   void _showErrorSnackBar(String message) {
@@ -386,7 +442,7 @@ class _CreateEventPageState extends State<CreateEventPage>
     });
 
     try {
-      await _eventService.createEvent(
+      final eventId = await _eventService.createEvent(
         title: _titleController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
@@ -398,7 +454,23 @@ class _CreateEventPageState extends State<CreateEventPage>
         latitude: _latitude,
         longitude: _longitude,
         imageUrl: imageUrl,
+        hasSeats: _hasSeats,
+        numberOfRows: _hasSeats ? int.parse(_numberOfRowsController.text) : 0,
+        seatsPerRow: _hasSeats ? int.parse(_seatsPerRowController.text) : 0,
+        frontSeatPrice: _hasSeats ? double.parse(_frontSeatPriceController.text) : 0.0,
+        regularSeatPrice: _hasSeats ? double.parse(_regularSeatPriceController.text) : 0.0,
       );
+
+      if (_hasSeats) {
+        final seatService = SeatService();
+        await seatService.createSeatsForEvent(
+          eventId: eventId,
+          numberOfRows: int.parse(_numberOfRowsController.text),
+          seatsPerRow: int.parse(_seatsPerRowController.text),
+          frontSeatPrice: double.parse(_frontSeatPriceController.text),
+          regularSeatPrice: double.parse(_regularSeatPriceController.text),
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -426,6 +498,18 @@ class _CreateEventPageState extends State<CreateEventPage>
     }
   }
 
+  // Helper widget pour afficher l'astérisque obligatoire
+  Widget _buildRequiredAsterisk() {
+    return Text(
+      ' *',
+      style: TextStyle(
+        color: error,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -445,7 +529,6 @@ class _CreateEventPageState extends State<CreateEventPage>
       backgroundColor: cream,
       body: CustomScrollView(
         slivers: [
-          // Modern Header
           SliverAppBar(
             expandedHeight: expandedHeight,
             pinned: true,
@@ -500,13 +583,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                       letterSpacing: -0.5,
                                     ),
                                   ),
-                                  Text(
-                                    'Remplissez les informations',
-                                    style: TextStyle(
-                                      fontSize: subtitleFontSize,
-                                      color: textSecondary,
-                                    ),
-                                  ),
+                                  
                                 ],
                               ),
                             ),
@@ -521,7 +598,6 @@ class _CreateEventPageState extends State<CreateEventPage>
             ),
           ),
 
-          // Form Content
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -537,11 +613,9 @@ class _CreateEventPageState extends State<CreateEventPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Image Picker Section
                         _buildImagePickerSection(isSmallScreen: isSmallScreen),
                         SizedBox(height: spacingBetweenSections),
 
-                        // Basic Info Card
                         _buildSectionCard(
                           title: 'Informations de base',
                           icon: Icons.info_outline_rounded,
@@ -552,6 +626,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                               label: 'Nom de l\'événement',
                               hint: 'Donnez un nom',
                               icon: Icons.title_rounded,
+                              isRequired: true,
                               isSmallScreen: isSmallScreen,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -568,6 +643,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                               value: _selectedCategory,
                               label: 'Catégorie',
                               icon: Icons.category_rounded,
+                              isRequired: true,
                               items: categories,
                               isSmallScreen: isSmallScreen,
                               onChanged: (value) {
@@ -582,6 +658,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                               label: 'Description',
                               hint: 'Décrivez l\'événement',
                               icon: Icons.description_rounded,
+                              isRequired: true,
                               maxLines: 4,
                               isSmallScreen: isSmallScreen,
                               validator: (value) {
@@ -599,10 +676,10 @@ class _CreateEventPageState extends State<CreateEventPage>
 
                         SizedBox(height: spacingBetweenSections),
 
-                        // Location Card
                         _buildSectionCard(
                           title: 'Lieu',
                           icon: Icons.location_on_rounded,
+                          isRequired: true,
                           isSmallScreen: isSmallScreen,
                           children: [
                             _buildLocationField(),
@@ -612,23 +689,23 @@ class _CreateEventPageState extends State<CreateEventPage>
                                 child: Container(
                                   padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
                                   decoration: BoxDecoration(
-                                    color: midnightBlue.withOpacity(0.05),
+                                    color: success.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
                                     children: [
                                       Icon(
-                                        Icons.map_rounded,
+                                        Icons.check_circle_rounded,
                                         size: isSmallScreen ? 14 : 16,
-                                        color: midnightBlue,
+                                        color: success,
                                       ),
                                       SizedBox(width: isSmallScreen ? 6 : 8),
                                       Expanded(
                                         child: Text(
-                                          'Coordonnées: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                                          'Lieu sélectionné avec succès',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: midnightBlue.withOpacity(0.7),
+                                            color: success,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -642,10 +719,10 @@ class _CreateEventPageState extends State<CreateEventPage>
 
                         const SizedBox(height: 20),
 
-                        // Date & Time Card
                         _buildSectionCard(
                           title: 'Date et heure',
                           icon: Icons.calendar_today_rounded,
+                          isRequired: true,
                           isSmallScreen: isSmallScreen,
                           children: [
                             Row(
@@ -664,7 +741,6 @@ class _CreateEventPageState extends State<CreateEventPage>
 
                         const SizedBox(height: 20),
 
-                        // Capacity & Price Card
                         _buildSectionCard(
                           title: 'Capacité et tarification',
                           icon: Icons.people_rounded,
@@ -675,6 +751,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                               label: 'Capacité',
                               hint: 'Nombre de places disponibles',
                               icon: Icons.people_rounded,
+                              isRequired: true,
                               keyboardType: TextInputType.number,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -735,7 +812,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     onChanged: (value) {
                                       setState(() {
                                         _isFree = value;
-                                        if (_isFree) {
+                                        if (_isFree || _hasSeats) {
                                           _priceController.clear();
                                         }
                                       });
@@ -746,7 +823,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                 ],
                               ),
                             ),
-                            if (!_isFree)
+                            if (!_isFree && !_hasSeats)
                               Padding(
                                 padding: const EdgeInsets.only(top: 16),
                                 child: _buildModernInputField(
@@ -754,10 +831,11 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   label: 'Prix',
                                   hint: 'Prix par personne',
                                   icon: Icons.attach_money_rounded,
+                                  isRequired: true,
                                   prefixText: 'TND ',
                                   keyboardType: TextInputType.number,
                                   validator: (value) {
-                                    if (!_isFree &&
+                                    if (!_isFree && !_hasSeats &&
                                         (value == null || value.isEmpty)) {
                                       return 'Le prix est requis pour les événements payants';
                                     }
@@ -770,12 +848,204 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   },
                                 ),
                               ),
+                            if (!_isFree && _hasSeats)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: accent.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: accent.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.info_rounded,
+                                        color: accent,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Les prix seront définis par type de place',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
 
                         const SizedBox(height: 32),
 
-                        // Action Buttons
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: midnightBlue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.event_seat_rounded,
+                                      color: midnightBlue,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Sélection de places',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: midnightBlue,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Permettez la sélection de places',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: _hasSeats,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _hasSeats = value;
+                                        if (_hasSeats && !_isFree) {
+                                          _priceController.clear();
+                                        }
+                                      });
+                                    },
+                                    activeColor: midnightBlue,
+                                    inactiveThumbColor: Colors.grey[400],
+                                  ),
+                                ],
+                              ),
+                              if (_hasSeats) ...[
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildModernInputField(
+                                        controller: _numberOfRowsController,
+                                        label: 'Rangées',
+                                        hint: 'Ex: 8 (1-26)',
+                                        icon: Icons.layers_rounded,
+                                        isRequired: true,
+                                        keyboardType: TextInputType.number,
+                                        validator: _hasSeats ? (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Requis';
+                                          }
+                                          final n = int.tryParse(value);
+                                          if (n == null || n <= 0 || n > 26) {
+                                            return '1-26';
+                                          }
+                                          return null;
+                                        } : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildModernInputField(
+                                        controller: _seatsPerRowController,
+                                        label: 'Places/rangée',
+                                        hint: 'Ex: 12',
+                                        icon: Icons.event_seat_rounded,
+                                        isRequired: true,
+                                        keyboardType: TextInputType.number,
+                                        validator: _hasSeats ? (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Requis';
+                                          }
+                                          if (int.tryParse(value) == null) {
+                                            return 'Nombre';
+                                          }
+                                          return null;
+                                        } : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                _buildModernInputField(
+                                  controller: _frontSeatPriceController,
+                                  label: 'Prix - Sièges avant',
+                                  hint: 'Sièges premium',
+                                  icon: Icons.attach_money_rounded,
+                                  isRequired: true,
+                                  prefixText: 'TND ',
+                                  keyboardType: TextInputType.number,
+                                  validator: _hasSeats ? (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Requis';
+                                    }
+                                    if (double.tryParse(value) == null) {
+                                      return 'Prix valide';
+                                    }
+                                    return null;
+                                  } : null,
+                                ),
+                                const SizedBox(height: 12),
+                                _buildModernInputField(
+                                  controller: _regularSeatPriceController,
+                                  label: 'Prix - Autres sièges',
+                                  hint: 'Sièges réguliers',
+                                  icon: Icons.attach_money_rounded,
+                                  isRequired: true,
+                                  prefixText: 'TND ',
+                                  keyboardType: TextInputType.number,
+                                  validator: _hasSeats ? (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Requis';
+                                    }
+                                    if (double.tryParse(value) == null) {
+                                      return 'Prix valide';
+                                    }
+                                    return null;
+                                  } : null,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 32),
+
                         Row(
                           children: [
                             Expanded(
@@ -850,6 +1120,7 @@ class _CreateEventPageState extends State<CreateEventPage>
     required String title,
     required IconData icon,
     required List<Widget> children,
+    bool isRequired = false,
     bool isSmallScreen = false,
   }) {
     return Container(
@@ -894,6 +1165,8 @@ class _CreateEventPageState extends State<CreateEventPage>
                   letterSpacing: -0.3,
                 ),
               ),
+              if (isRequired)
+                _buildRequiredAsterisk(),
             ],
           ),
           SizedBox(height: isSmallScreen ? 16 : 20),
@@ -911,62 +1184,77 @@ class _CreateEventPageState extends State<CreateEventPage>
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     String? prefixText,
+    bool isRequired = false,
     String? Function(String?)? validator,
     bool isSmallScreen = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cream,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        validator: validator,
-        style: TextStyle(
-          fontSize: isSmallScreen ? 13 : 15,
-          color: textPrimary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 13,
+                fontWeight: FontWeight.w500,
+                color: midnightBlue.withOpacity(0.6),
+              ),
+            ),
+            if (isRequired)
+              _buildRequiredAsterisk(),
+          ],
         ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(
-            color: midnightBlue.withOpacity(0.6),
-            fontWeight: FontWeight.w500,
-            fontSize: isSmallScreen ? 12 : 13,
-          ),
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: textSecondary.withOpacity(0.6),
-            fontSize: isSmallScreen ? 12 : 13,
-          ),
-          prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
-          prefixText: prefixText,
-          prefixStyle: TextStyle(
-            color: midnightBlue,
-            fontWeight: FontWeight.w500,
-          ),
-          border: OutlineInputBorder(
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: cream,
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+          child: TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            keyboardType: keyboardType,
+            validator: validator,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 13 : 15,
+              color: textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: textSecondary.withOpacity(0.6),
+                fontSize: isSmallScreen ? 12 : 13,
+              ),
+              prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
+              prefixText: prefixText,
+              prefixStyle: TextStyle(
+                color: midnightBlue,
+                fontWeight: FontWeight.w500,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: midnightBlue, width: 1.5),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: error, width: 1),
+              ),
+              filled: true,
+              fillColor: cream,
+              contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 14 : 16),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: midnightBlue, width: 1.5),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: error, width: 1),
-          ),
-          filled: true,
-          fillColor: cream,
-          contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 14 : 16),
         ),
-      ),
+      ],
     );
   }
 
@@ -976,87 +1264,91 @@ class _CreateEventPageState extends State<CreateEventPage>
     required IconData icon,
     required List<String> items,
     required Function(String) onChanged,
+    bool isRequired = false,
     bool isSmallScreen = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cream,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonFormField<String>(
-        value: value,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(
-            color: midnightBlue.withOpacity(0.6),
-            fontWeight: FontWeight.w500,
-            fontSize: isSmallScreen ? 12 : 13,
-          ),
-          prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: midnightBlue, width: 1.5),
-          ),
-          filled: true,
-          fillColor: cream,
-          contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 12 : 14),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 13,
+                fontWeight: FontWeight.w500,
+                color: midnightBlue.withOpacity(0.6),
+              ),
+            ),
+            if (isRequired)
+              _buildRequiredAsterisk(),
+          ],
         ),
-        items: items.map((String item) {
-          return DropdownMenuItem<String>(
-            value: item,
-            child: Text(item, style: TextStyle(fontSize: isSmallScreen ? 13 : 15)),
-          );
-        }).toList(),
-        onChanged: (newValue) {
-          if (newValue != null) {
-            onChanged(newValue);
-          }
-        },
-        icon: Icon(Icons.arrow_drop_down_rounded, color: midnightBlue),
-        dropdownColor: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: cream,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: DropdownButtonFormField<String>(
+            value: value,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: midnightBlue, size: isSmallScreen ? 18 : 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: midnightBlue, width: 1.5),
+              ),
+              filled: true,
+              fillColor: cream,
+              contentPadding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 20, vertical: isSmallScreen ? 12 : 14),
+            ),
+            items: items.map((String item) {
+              return DropdownMenuItem<String>(
+                value: item,
+                child: Text(item, style: TextStyle(fontSize: isSmallScreen ? 13 : 15)),
+              );
+            }).toList(),
+            onChanged: (newValue) {
+              if (newValue != null) {
+                onChanged(newValue);
+              }
+            },
+            icon: Icon(Icons.arrow_drop_down_rounded, color: midnightBlue),
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildLocationField() {
-    return GestureDetector(
-      onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PlacePickerPage(
-              initialLat: _latitude,
-              initialLng: _longitude,
-              initialLocationName: _locationController.text,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Lieu',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: midnightBlue.withOpacity(0.6),
+              ),
             ),
-          ),
-        );
-
-        if (result != null) {
-          setState(() {
-            _latitude = result['latitude'];
-            _longitude = result['longitude'];
-            _locationController.text = result['location_name'];
-          });
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: cream,
-          borderRadius: BorderRadius.circular(16),
+            _buildRequiredAsterisk(),
+          ],
         ),
-        child: TextFormField(
-          controller: _locationController,
-          readOnly: true,
+        const SizedBox(height: 8),
+        GestureDetector(
           onTap: () async {
             final result = await Navigator.push(
               context,
@@ -1077,268 +1369,301 @@ class _CreateEventPageState extends State<CreateEventPage>
               });
             }
           },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Le lieu est requis';
-            }
-            return null;
-          },
-          style: TextStyle(
-            fontSize: 15,
-            color: textPrimary,
-          ),
-          decoration: InputDecoration(
-            labelText: 'Lieu',
-            labelStyle: TextStyle(
-              color: midnightBlue.withOpacity(0.6),
-              fontWeight: FontWeight.w500,
+          child: Container(
+            decoration: BoxDecoration(
+              color: cream,
+              borderRadius: BorderRadius.circular(16),
             ),
-            hintText: 'Cliquez pour choisir un lieu sur la carte',
-            hintStyle: TextStyle(
-              color: textSecondary.withOpacity(0.6),
-            ),
-            prefixIcon: Icon(Icons.location_on_rounded, color: midnightBlue, size: 20),
-            suffixIcon: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: midnightBlue,
-                borderRadius: BorderRadius.circular(12),
+            child: TextFormField(
+              controller: _locationController,
+              readOnly: true,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Le lieu est requis';
+                }
+                return null;
+              },
+              style: TextStyle(
+                fontSize: 15,
+                color: textPrimary,
               ),
-              child: const Icon(
-                Icons.map_rounded,
-                color: Colors.white,
-                size: 18,
+              decoration: InputDecoration(
+                hintText: 'Cliquez pour choisir un lieu sur la carte',
+                hintStyle: TextStyle(
+                  color: textSecondary.withOpacity(0.6),
+                ),
+                prefixIcon: Icon(Icons.location_on_rounded, color: midnightBlue, size: 20),
+                suffixIcon: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: midnightBlue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.map_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: midnightBlue, width: 1.5),
+                ),
+                filled: true,
+                fillColor: cream,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               ),
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: midnightBlue, width: 1.5),
-            ),
-            filled: true,
-            fillColor: cream,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildImagePickerSection({bool isSmallScreen = false}) {
+    return GestureDetector(
+      onTap: _showImagePickerDialog,
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _selectedImage != null || _imageUrl != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: _selectedImage != null
+                        ? Image.file(
+                            _selectedImage!,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.network(
+                            _imageUrl!,
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.5),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: midnightBlue,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  if (_isUploadingImage)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: midnightBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add_photo_alternate_rounded,
+                      size: 48,
+                      color: midnightBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Ajouter une photo',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: midnightBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '(optionnel)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Cliquez pour choisir une image',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 
-Widget _buildImagePickerSection({bool isSmallScreen = false}) {
-  return GestureDetector(
-    onTap: _showImagePickerDialog,
-    child: Container(
-      height: 200,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: _selectedImage != null || _imageUrl != null
-          ? Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: _selectedImage != null
-                      ? Image.file(
-                          _selectedImage!,
-                          fit: BoxFit.cover,
-                        )
-                      : Image.network(
-                          _imageUrl!,
-                          fit: BoxFit.cover,
-                        ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.5),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.edit_rounded,
-                      color: midnightBlue,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                if (_isUploadingImage)
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      color: Colors.black.withOpacity(0.5),
-                    ),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: midnightBlue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.add_photo_alternate_rounded,
-                    size: 48,
-                    color: midnightBlue,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Ajouter une photo',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: midnightBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '(optionnel)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Cliquez pour choisir une image',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: textSecondary,
-                  ),
-                ),
-              ],
-            ),
-    ),
-  );
-}
-
   Widget _buildDatePickerField() {
-    return GestureDetector(
-      onTap: _selectDate,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cream,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: 'Date',
-            labelStyle: TextStyle(
-              color: midnightBlue.withOpacity(0.6),
-              fontWeight: FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Date',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: midnightBlue.withOpacity(0.6),
+              ),
             ),
-            prefixIcon: Icon(Icons.calendar_today_rounded, color: midnightBlue, size: 20),
-            border: OutlineInputBorder(
+            _buildRequiredAsterisk(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _selectDate,
+          child: Container(
+            decoration: BoxDecoration(
+              color: cream,
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
             ),
-            filled: true,
-            fillColor: cream,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          ),
-          child: Text(
-            _selectedDate != null
-                ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
-                : 'Choisissez une date',
-            style: TextStyle(
-              fontSize: 15,
-              color: _selectedDate != null ? textPrimary : textSecondary,
-              fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.calendar_today_rounded, color: midnightBlue, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: cream,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+              child: Text(
+                _selectedDate != null
+                    ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
+                    : 'Choisissez une date',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _selectedDate != null ? textPrimary : textSecondary,
+                  fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildTimePickerField() {
-    return GestureDetector(
-      onTap: _selectTime,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cream,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: 'Heure',
-            labelStyle: TextStyle(
-              color: midnightBlue.withOpacity(0.6),
-              fontWeight: FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Heure',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: midnightBlue.withOpacity(0.6),
+              ),
             ),
-            prefixIcon: Icon(Icons.access_time_rounded, color: midnightBlue, size: 20),
-            border: OutlineInputBorder(
+            _buildRequiredAsterisk(),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _selectTime,
+          child: Container(
+            decoration: BoxDecoration(
+              color: cream,
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
             ),
-            filled: true,
-            fillColor: cream,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          ),
-          child: Text(
-            _selectedTime != null
-                ? _selectedTime!.format(context)
-                : 'Choisissez une heure',
-            style: TextStyle(
-              fontSize: 15,
-              color: _selectedTime != null ? textPrimary : textSecondary,
-              fontWeight: _selectedTime != null ? FontWeight.w500 : FontWeight.normal,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.access_time_rounded, color: midnightBlue, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: cream,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+              child: Text(
+                _selectedTime != null
+                    ? _selectedTime!.format(context)
+                    : 'Choisissez une heure',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _selectedTime != null ? textPrimary : textSecondary,
+                  fontWeight: _selectedTime != null ? FontWeight.w500 : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

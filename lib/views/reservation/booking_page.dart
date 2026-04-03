@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../models/event_model.dart';
+import '../../models/seat_model.dart';
 import '../reservation/payment_page.dart';
+import '../reservation/seating_plan_page.dart';
 import '../../widgets/custom_back_button.dart';
 
 class BookingPage extends StatefulWidget {
@@ -17,6 +19,7 @@ class BookingPage extends StatefulWidget {
 class _BookingPageState extends State<BookingPage>
     with SingleTickerProviderStateMixin {
   int _seats = 1;
+  List<SeatModel> _selectedSeats = [];
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -30,7 +33,12 @@ class _BookingPageState extends State<BookingPage>
   static const Color textPrimary = Color(0xFF1F2937);
   static const Color textSecondary = Color(0xFF6B7280);
 
-  double get _total => _seats * widget.event.price;
+  double get _total {
+    if (widget.event.hasSeats && _selectedSeats.isNotEmpty) {
+      return _selectedSeats.fold(0.0, (sum, seat) => sum + seat.price);
+    }
+    return _seats * widget.event.price;
+  }
 
   @override
   void initState() {
@@ -368,6 +376,145 @@ class _BookingPageState extends State<BookingPage>
   }
 
   Widget _buildSeatSelectionCard(EventModel event, bool isFree) {
+    if (event.hasSeats) {
+      // Seat-based booking UI
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: midnightBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.event_seat_rounded,
+                    size: 22,
+                    color: midnightBlue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Sélection des places',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // Seating plan button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final result = await Navigator.push<List<SeatModel>>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SeatingPlanPage(event: event),
+                    ),
+                  );
+                  
+                  if (result != null && result.isNotEmpty) {
+                    setState(() {
+                      _selectedSeats = result;
+                    });
+                    HapticFeedback.heavyImpact();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: midnightBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _selectedSeats.isEmpty ? Icons.add_rounded : Icons.check_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _selectedSeats.isEmpty 
+                        ? 'Ouvrir la salle' 
+                        : '${_selectedSeats.length} place(s) sélectionnée(s)',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            if (_selectedSeats.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: success.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: success,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Places sélectionnées: ${_selectedSeats.map((s) => s.seatNumber).join(', ')}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: success,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    
+    // Traditional quantity selector
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -655,23 +802,28 @@ class _BookingPageState extends State<BookingPage>
   }
 
   Widget _buildActionButton(bool isFree, EventModel event) {
+    final hasSeatsSelected = event.hasSeats && _selectedSeats.isNotEmpty;
+    final hasValidBooking = event.hasSeats ? hasSeatsSelected : true;
+    
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
+        onPressed: hasValidBooking ? () {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => PaymentPage(
                 event: event,
-                numberOfSeats: _seats,
+                numberOfSeats: event.hasSeats ? _selectedSeats.length : _seats,
                 totalPrice: _total,
+                selectedSeats: event.hasSeats ? _selectedSeats : null,
               ),
             ),
           );
-        },
+        } : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: midnightBlue,
+          disabledBackgroundColor: textSecondary.withOpacity(0.3),
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -688,7 +840,9 @@ class _BookingPageState extends State<BookingPage>
             ),
             const SizedBox(width: 10),
             Text(
-              isFree ? 'Confirmer la réservation' : 'Passer au paiement',
+              event.hasSeats && _selectedSeats.isEmpty
+                ? 'Sélectionnez des places'
+                : (isFree ? 'Confirmer la réservation' : 'Passer au paiement'),
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,

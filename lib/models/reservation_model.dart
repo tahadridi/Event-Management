@@ -11,6 +11,7 @@ class ReservationModel {
   final double totalPrice;
   final String status; // 'Confirmée' or 'Annulée'
   final DateTime createdAt;
+  final List<String> selectedSeats; // List of seat IDs (e.g., ["A1", "A2", "B3"])
 
   ReservationModel({
     required this.id,
@@ -23,6 +24,7 @@ class ReservationModel {
     required this.status,
     required this.createdAt,
     this.organizerId = '',
+    this.selectedSeats = const [],
   });
 
   Map<String, dynamic> toMap() => {
@@ -35,6 +37,7 @@ class ReservationModel {
         'status': status,
         'organizerId': organizerId,
         'createdAt': Timestamp.fromDate(createdAt),
+        'selectedSeats': selectedSeats,
       };
 
   factory ReservationModel.fromDoc(DocumentSnapshot doc) {
@@ -50,6 +53,7 @@ class ReservationModel {
     status: d['status'] ?? 'confirmed',
     createdAt: (d['createdAt'] as Timestamp).toDate(),
     organizerId: d['organizerId'] ?? '',
+    selectedSeats: List<String>.from(d['selectedSeats'] ?? []),
   );
 }
 

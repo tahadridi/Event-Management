@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 import '../../services/user_service.dart';
@@ -19,8 +21,7 @@ class _EventListTheme {
   
   // Background & Surfaces
   static const Color background = cream;
-  static const Color card = Colors.white;
-  static const Color surface = cream;
+
   static const Color border = Color(0xFFE0D9CE);
   
   // Text colors
@@ -29,21 +30,7 @@ class _EventListTheme {
   static const Color textHint = Color(0xFF9CA3AF);
   
   // Status colors
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  
-  // Gradients
-  static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [midnightBlue, midnightBlueLight, Color(0xFF0F2A6B)],
-  );
-  
-  static const LinearGradient accentGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [accent, accentLight],
-  );
+
 }
 
 class EventListPage extends StatefulWidget {
@@ -56,9 +43,12 @@ class EventListPage extends StatefulWidget {
 class _EventListPageState extends State<EventListPage> {
   final EventService _eventService = EventService();
   final UserService _userService = UserService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
 
   Set<String> _userFavorites = {};
+  Set<String> _userReservations = {}; // Track user's event reservations
   String _selectedCategory = 'Tous';
   double _minPrice = 0;
   double _maxPrice = 200;
@@ -86,6 +76,7 @@ class _EventListPageState extends State<EventListPage> {
   void initState() {
     super.initState();
     _loadFavorites();
+    _loadUserReservations();
   }
 
   @override
@@ -98,6 +89,27 @@ class _EventListPageState extends State<EventListPage> {
     try {
       final favs = await _userService.getUserFavoritesStream().first;
       if (mounted) setState(() => _userFavorites = Set.from(favs));
+    } catch (_) {}
+  }
+
+  Future<void> _loadUserReservations() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final querySnapshot = await _db
+          .collection('reservations')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      final reservedEventIds = <String>{};
+      for (final doc in querySnapshot.docs) {
+        reservedEventIds.add(doc['eventId'] as String);
+      }
+
+      if (mounted) {
+        setState(() => _userReservations = reservedEventIds);
+      }
     } catch (_) {}
   }
 
@@ -852,6 +864,7 @@ class _EventListPageState extends State<EventListPage> {
                     return EventCard(
                       event: event,
                       isFavorite: _userFavorites.contains(event.id),
+                      hasUserReservation: _userReservations.contains(event.id),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

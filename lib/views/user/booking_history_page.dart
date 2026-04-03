@@ -651,12 +651,28 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
                 BookingTheme.textSecondary,
               ),
               const SizedBox(height: 10),
-              _infoRow(
-                Icons.confirmation_number_rounded,
-                '${reservation.numberOfSeats} place(s)',
-                BookingTheme.textSecondary,
-              ),
-              const SizedBox(height: 10),
+              if (reservation.selectedSeats.isNotEmpty)
+                Column(
+                  children: [
+                    _infoRow(
+                      Icons.event_seat_outlined,
+                      'Sièges: ${reservation.selectedSeats.join(', ')}',
+                      BookingTheme.textSecondary,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                )
+              else
+                Column(
+                  children: [
+                    _infoRow(
+                      Icons.confirmation_number_rounded,
+                      '${reservation.numberOfSeats} place(s)',
+                      BookingTheme.textSecondary,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
               _infoRow(
                 Icons.payments_rounded,
                 reservation.totalPrice == 0

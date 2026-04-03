@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   table_calendar: ^3.1.2
+  google_fonts: ^6.1.0
+  lottie: ^2.7.0
   qr_flutter: ^4.1.0
   image_picker: ^1.0.4
   firebase_storage: 12.4.10
@@ -36,10 +38,11 @@ dependencies:
   # Location
   geolocator: ^14.0.0
   geocoding: ^3.0.0
-  http: ^1.1.0
+  http: ^1.6.0
 
   # Icons
   cupertino_icons: ^1.0.8
+  dio: ^5.9.2
 
 dev_dependencies:
   flutter_test:

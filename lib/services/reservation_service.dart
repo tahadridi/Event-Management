@@ -155,4 +155,25 @@ Stream<List<Map<String, dynamic>>> getUserBookingHistory() {
         .snapshots()
         .asyncMap((snapshot) => _enrichReservations(snapshot.docs));
   }
+
+  // Obtenir la réservation de l'utilisateur pour un événement spécifique
+  Future<ReservationModel?> getUserReservationForEvent(String eventId) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return null;
+
+      final querySnapshot = await _db
+          .collection('reservations')
+          .where('userId', isEqualTo: userId)
+          .where('eventId', isEqualTo: eventId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) return null;
+
+      return ReservationModel.fromFirestore(querySnapshot.docs.first);
+    } catch (e) {
+      return null;
+    }
+  }
 }

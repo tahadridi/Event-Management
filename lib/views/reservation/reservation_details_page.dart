@@ -286,15 +286,35 @@ class ReservationDetailsPage extends StatelessWidget {
                               valueFontSize: detailFontSize,
                             ),
                             const SizedBox(height: 12),
-                            _buildDetailRow(
-                              Icons.event_seat_outlined,
-                              'Places',
-                              '${reservation.numberOfSeats} place${reservation.numberOfSeats > 1 ? 's' : ''}',
-                              iconSize: iconSize,
-                              labelFontSize: labelFontSize,
-                              valueFontSize: detailFontSize,
-                            ),
-                            const SizedBox(height: 12),
+                            // Display seat names
+                            if (reservation.selectedSeats.isNotEmpty)
+                              Column(
+                                children: [
+                                  _buildDetailRow(
+                                    Icons.event_seat_outlined,
+                                    'Sièges réservés',
+                                    reservation.selectedSeats.join(', '),
+                                    iconSize: iconSize,
+                                    labelFontSize: labelFontSize,
+                                    valueFontSize: detailFontSize,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  _buildDetailRow(
+                                    Icons.event_seat_outlined,
+                                    'Places',
+                                    '${reservation.numberOfSeats} place${reservation.numberOfSeats > 1 ? 's' : ''}',
+                                    iconSize: iconSize,
+                                    labelFontSize: labelFontSize,
+                                    valueFontSize: detailFontSize,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                              ),
                             _buildDetailRow(
                               Icons.payments_outlined,
                               'Prix total',

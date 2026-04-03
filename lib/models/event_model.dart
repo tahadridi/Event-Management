@@ -15,6 +15,11 @@ class EventModel {
   final String organizerId;
   final String organizerName;
   final String? imageUrl;
+  final bool hasSeats;
+  final int numberOfRows;
+  final int seatsPerRow;
+  final double frontSeatPrice; // Prix pour les 20% sièges avant
+  final double regularSeatPrice; // Prix pour les autres sièges
 
   EventModel({
     required this.id,
@@ -31,6 +36,11 @@ class EventModel {
     required this.organizerId,
     required this.organizerName,
     this.imageUrl,
+    this.hasSeats = false,
+    this.numberOfRows = 0,
+    this.seatsPerRow = 0,
+    this.frontSeatPrice = 0,
+    this.regularSeatPrice = 0,
   });
 
   // Convertir Firestore → EventModel
@@ -51,6 +61,11 @@ class EventModel {
       organizerId: data['organizerId'] ?? '',
       organizerName: data['organizerName'] ?? '',
       imageUrl: data['imageUrl'] as String?,
+      hasSeats: data['hasSeats'] ?? false,
+      numberOfRows: data['numberOfRows'] ?? 0,
+      seatsPerRow: data['seatsPerRow'] ?? 0,
+      frontSeatPrice: (data['frontSeatPrice'] ?? data['seatPrice'] ?? 0).toDouble(),
+      regularSeatPrice: (data['regularSeatPrice'] ?? data['seatPrice'] ?? 0).toDouble(),
     );
   }
 
@@ -70,6 +85,11 @@ class EventModel {
       'organizerId': organizerId,
       'organizerName': organizerName,
       'imageUrl': imageUrl,
+      'hasSeats': hasSeats,
+      'numberOfRows': numberOfRows,
+      'seatsPerRow': seatsPerRow,
+      'frontSeatPrice': frontSeatPrice,
+      'regularSeatPrice': regularSeatPrice,
     };
   }
 

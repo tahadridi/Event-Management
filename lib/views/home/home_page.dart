@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/notification_badge.dart';
+
 import 'event_list_page.dart';
 import '../organizer/my_events_page.dart';
 import '../user/profile_page.dart';

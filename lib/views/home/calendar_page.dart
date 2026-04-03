@@ -28,14 +28,14 @@ class _CalendarPageState extends State<CalendarPage>
   bool _isLoading = true;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  List<_CalendarEvent> _selectedEvents = [];
 
   Map<DateTime, List<_CalendarEvent>> _eventsByDay = {};
-  List<_CalendarEvent> _selectedEvents = [];
+
   List<_CalendarEvent> _allMonthEvents = [];
 
   static const Color midnightBlue = Color(0xFF081F5C);
   static const Color cream = Color(0xFFF8F3EA);
-  static const Color creamDark = Color(0xFFF5EDE2);
   static const Color accent = Color(0xFFE67E22);
   static const Color success = Color(0xFF10B981);
   static const Color textPrimary = Color(0xFF1F2937);
@@ -192,7 +192,6 @@ class _CalendarPageState extends State<CalendarPage>
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 480;
     
