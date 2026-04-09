@@ -4,11 +4,13 @@ import '../../services/notification_service.dart';
 
 class EventChangeNotificationDialog extends StatefulWidget {
   final Map<String, dynamic> notification;
+  final String? notificationId;
   final VoidCallback onDismiss;
 
   const EventChangeNotificationDialog({
     super.key,
     required this.notification,
+    this.notificationId,
     required this.onDismiss,
   });
 
@@ -28,10 +30,13 @@ class _EventChangeNotificationDialogState
   static const Color success = Color(0xFF10B981);
   static const Color error = Color(0xFFEF4444);
 
+  String get _notificationId =>
+      widget.notificationId ?? widget.notification['id'] ?? '';
+
   Future<void> _handleAccept() async {
     setState(() => _isProcessing = true);
     try {
-      await _notificationService.acceptNotification(widget.notification['id']);
+      await _notificationService.acceptNotification(_notificationId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -76,7 +81,7 @@ class _EventChangeNotificationDialogState
               setState(() => _isProcessing = true);
               try {
                 await _notificationService.cancelParticipationDueToChanges(
-                  notificationId: widget.notification['id'],
+                  notificationId: _notificationId,
                   reservationId: widget.notification['reservationId'],
                   eventId: widget.notification['eventId'],
                 );

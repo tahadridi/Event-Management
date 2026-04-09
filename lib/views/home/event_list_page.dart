@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 import '../../services/user_service.dart';
@@ -61,6 +62,9 @@ class _EventListPageState extends State<EventListPage> {
   // Place filter
   String _selectedPlace = 'Toutes les villes';
   List<String> _availablePlaces = [];
+  
+  // Stream subscription for real-time reservation updates
+  StreamSubscription<QuerySnapshot>? _reservationSubscription;
 
   final List<Map<String, dynamic>> _categories = [
     {'label': 'Tous', 'icon': Icons.apps_rounded},
@@ -83,6 +87,7 @@ class _EventListPageState extends State<EventListPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _reservationSubscription?.cancel();
     super.dispose();
   }
 
@@ -93,25 +98,34 @@ class _EventListPageState extends State<EventListPage> {
     } catch (_) {}
   }
 
-  Future<void> _loadUserReservations() async {
+  void _loadUserReservations() {
     try {
       final userId = _auth.currentUser?.uid;
       if (userId == null) return;
 
-      final querySnapshot = await _db
+      // Setup real-time listener for reservations
+      _reservationSubscription = _db
           .collection('reservations')
           .where('userId', isEqualTo: userId)
-          .get();
+          .snapshots()
+          .listen((querySnapshot) {
+        final reservedEventIds = <String>{};
+        
+        // Only include CONFIRMED reservations (exclude "Annulée" status)
+        for (final doc in querySnapshot.docs) {
+          final status = (doc['status'] as String).toLowerCase();
+          if (status == 'confirmed' || status == 'confirmée') {
+            reservedEventIds.add(doc['eventId'] as String);
+          }
+        }
 
-      final reservedEventIds = <String>{};
-      for (final doc in querySnapshot.docs) {
-        reservedEventIds.add(doc['eventId'] as String);
-      }
-
-      if (mounted) {
-        setState(() => _userReservations = reservedEventIds);
-      }
-    } catch (_) {}
+        if (mounted) {
+          setState(() => _userReservations = reservedEventIds);
+        }
+      });
+    } catch (e) {
+      print('Error loading user reservations: $e');
+    }
   }
 
   Future<void> _toggleFavorite(String eventId) async {
@@ -269,63 +283,49 @@ class _EventListPageState extends State<EventListPage> {
       backgroundColor: _EventListTheme.background,
       body: CustomScrollView(
         slivers: [
-          // Header with Midnight Blue gradient
+          // Fixed Header with Midnight Blue gradient - stays pinned when scrolling
           SliverAppBar(
-            expandedHeight: expandedHeight,
             pinned: true,
+            floating: false,
+            snap: false,
             backgroundColor: _EventListTheme.midnightBlue,
             foregroundColor: Colors.white,
             elevation: 0,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _EventListTheme.midnightBlue,
-                      _EventListTheme.midnightBlueLight,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, headerPaddingTop, 20, headerPaddingBottom),
-                    child: Row(
+            toolbarHeight: headerPaddingTop + headerPaddingBottom + 50,
+            title: Container(
+              padding: EdgeInsets.fromLTRB(0, headerPaddingTop, 0, headerPaddingBottom),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Découvrir',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: titleFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              SizedBox(height: isSmallScreen ? 4 : 6),
-                              Text(
-                                'Trouvez votre prochain événement',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: subtitleFontSize,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          'Découvrir',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
                           ),
                         ),
-                        SizedBox(width: 12),
-                        _buildNotificationBell(context),
+                        SizedBox(height: isSmallScreen ? 4 : 6),
+                        Text(
+                          'Trouvez votre prochain événement',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: subtitleFontSize,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
+                  SizedBox(width: 12),
+                  _buildNotificationBell(context),
+                ],
               ),
             ),
             bottom: PreferredSize(

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../models/event_model.dart';
+import 'notification_service.dart';
 
 class EventService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -313,8 +314,8 @@ Future<String> createEvent({
         throw Exception('Événement non trouvé');
       }
 
-      final event = EventModel.fromFirestore(eventDoc);
-      if (event.organizerId != currentUser.uid) {
+      final oldEvent = EventModel.fromFirestore(eventDoc);
+      if (oldEvent.organizerId != currentUser.uid) {
         throw Exception(
             'Vous n\'êtes pas autorisé à modifier cet événement');
       }
@@ -327,6 +328,10 @@ Future<String> createEvent({
         time.hour,
         time.minute,
       );
+
+      // Check for major changes
+      bool dateChanged = oldEvent.date != eventDateTime;
+      bool locationChanged = oldEvent.location != location;
 
       await _db.collection('events').doc(eventId).update({
         'title': title,
@@ -345,9 +350,48 @@ Future<String> createEvent({
         'regularSeatPrice': regularSeatPrice ?? 0.0,
         'updatedAt': Timestamp.now(),
       });
+
+      // Send notifications for major changes
+      if (dateChanged || locationChanged) {
+        final notificationService = NotificationService();
+        
+        // Send local device notification to organizer
+        if (dateChanged) {
+          await notificationService.notifyEventDetailChanged(
+            eventTitle: title,
+            changeType: 'date',
+            oldValue: _formatDateTime(oldEvent.date),
+            newValue: _formatDateTime(eventDateTime),
+          );
+        }
+        if (locationChanged) {
+          await notificationService.notifyEventDetailChanged(
+            eventTitle: title,
+            changeType: 'place',
+            oldValue: oldEvent.location,
+            newValue: location,
+          );
+        }
+
+        // Notify all participants with Firestore notification
+        await notificationService.notifyParticipantsOfChanges(
+          eventId: eventId,
+          eventTitle: title,
+          oldEvent: oldEvent,
+          newEvent: oldEvent, // We'll create proper new event object
+        );
+      }
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour de l\'événement: $e');
     }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$day/$month/${dateTime.year} à $hour:$minute';
   }
 }
 

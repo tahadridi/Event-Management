@@ -529,22 +529,13 @@ class _EditEventPageState extends State<EditEventPage>
         });
       }
 
-      // If major changes detected, notify all participants
-      if (isMajor) {
-        await _notificationService.notifyParticipantsOfChanges(
-          eventId: updatedEvent.id,
-          eventTitle: updatedEvent.title,
-          oldEvent: widget.event,
-          newEvent: updatedEvent,
-        );
-      }
+      // Note: notifyParticipantsOfChanges is now handled in EventService.updateEvent()
+      // No need to call it here to avoid duplicates
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isMajor 
-              ? 'Événement mis à jour ! Les participants ont été notifiés.'
-              : 'Événement mis à jour avec succès !'),
+            content: const Text('Événement mis à jour avec succès !'),
             backgroundColor: success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

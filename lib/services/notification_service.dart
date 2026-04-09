@@ -1,11 +1,171 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tzdata;
 import '../models/notification_model.dart';
 import '../models/event_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  // Initialize local notifications
+  Future<void> initializeLocalNotifications() async {
+    tzdata.initializeTimeZones();
+
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(initSettings);
+
+    // Request notification permission on Android 13+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
+
+  /// Show a local device notification immediately
+  Future<void> showLocalNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'event_notifications',
+      'Event Notifications',
+      channelDescription: 'Notifications for event changes',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      platformDetails,
+      payload: payload,
+    );
+  }
+
+  /// Notify user of event detail changes with local notification
+  Future<void> notifyEventDetailChanged({
+    required String eventTitle,
+    required String changeType, // 'date' or 'place'
+    required String oldValue,
+    required String newValue,
+  }) async {
+    final title = '📢 $eventTitle - Modification';
+    late String body;
+
+    if (changeType == 'date') {
+      body = 'La date a changé:\n$oldValue → $newValue';
+    } else if (changeType == 'place') {
+      body = 'Le lieu a changé:\n$oldValue → $newValue';
+    } else {
+      body = 'L\'événement a été modifié.';
+    }
+
+    await showLocalNotification(
+      title: title,
+      body: body,
+      payload: 'event_changed_$changeType',
+    );
+  }
+
+  /// Notify users about upcoming events within 3 days
+  Future<void> checkAndNotifyUpcomingEvents() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final now = DateTime.now();
+      final threeDaysFromNow = now.add(Duration(days: 3));
+
+      // Get all confirmed reservations for user
+      final reservationsSnapshot = await _db
+          .collection('reservations')
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: 'confirmed')
+          .get();
+
+      final eventIds = <String>[];
+      for (final doc in reservationsSnapshot.docs) {
+        final eventId = (doc.data() as Map<String, dynamic>)['eventId'] as String?;
+        if (eventId != null) {
+          eventIds.add(eventId);
+        }
+      }
+
+      // Get event details for those reservations
+      for (final eventId in eventIds) {
+        final eventSnapshot = await _db.collection('events').doc(eventId).get();
+        if (!eventSnapshot.exists) continue;
+
+        final eventData = eventSnapshot.data() as Map<String, dynamic>;
+        final eventDate = (eventData['date'] as Timestamp).toDate();
+        final eventTitle = eventData['title'] as String;
+
+        // Check if event is within 3 days
+        if (eventDate.isAfter(now) && eventDate.isBefore(threeDaysFromNow)) {
+          final difference = eventDate.difference(now);
+          final daysUntil = difference.inDays;
+
+          String timeText = '';
+          if (daysUntil == 0) {
+            timeText = 'C\'est aujourd\'hui!';
+          } else if (daysUntil == 1) {
+            timeText = 'C\'est demain!';
+          } else {
+            timeText = 'Dans $daysUntil jours';
+          }
+
+          await showLocalNotification(
+            title: '📅 $eventTitle',
+            body: '$timeText - ${_formatDateShort(eventDate)}',
+            payload: 'event_upcoming',
+          );
+
+          // Also save to Firestore for in-app notification center
+          await createNotification(
+            userId: userId,
+            title: '📅 Événement à venir: $eventTitle',
+            message: '$timeText - ${_formatDate(eventDate)}',
+            type: 'upcoming_event',
+            resourceId: eventId,
+          );
+        }
+      }
+    } catch (e) {
+      print('Error checking upcoming events: $e');
+    }
+  }
 
   // Get user's notifications
   Stream<List<NotificationModel>> getUserNotifications() {
@@ -244,5 +404,15 @@ class NotificationService {
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '$day/$month/${date.year} à $hour:$minute';
+  }
+
+  String _formatDateShort(DateTime date) {
+    final months = [
+      'jan', 'fév', 'mar', 'avr', 'mai', 'jun',
+      'juil', 'aoû', 'sep', 'oct', 'nov', 'déc'
+    ];
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${date.day} ${months[date.month - 1]} à $hour:$minute';
   }
 }

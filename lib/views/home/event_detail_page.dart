@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../../models/event_model.dart';
 import '../../models/reservation_model.dart';
 import '../../services/review_service.dart';
@@ -30,6 +31,7 @@ class _EventDetailPageState extends State<EventDetailPage>
   final UserService _userService = UserService();
   final ReservationService _reservationService = ReservationService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   bool _isFavorite = false;
   double _averageRating = 0;
@@ -37,10 +39,15 @@ class _EventDetailPageState extends State<EventDetailPage>
   bool _hasReviewed = false;
   bool _initialLoadDone = false;
   ReservationModel? _userReservation;
+  late EventModel _currentEvent;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late AnimationController _locationScrollController;
+  
+  // Stream subscriptions for real-time updates
+  StreamSubscription<DocumentSnapshot>? _eventSubscription;
+  StreamSubscription<QuerySnapshot>? _reservationSubscription;
 
   // Color palette - Midnight Blue & Cream
   static const Color midnightBlue = Color(0xFF081F5C);
@@ -58,7 +65,9 @@ class _EventDetailPageState extends State<EventDetailPage>
   @override
   void initState() {
     super.initState();
+    _currentEvent = widget.event;
     _loadInitialData();
+    _setupRealtimeListeners();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -83,10 +92,56 @@ class _EventDetailPageState extends State<EventDetailPage>
     );
   }
 
+  void _setupRealtimeListeners() {
+    // Listen to event changes
+    _eventSubscription = _db
+        .collection('events')
+        .doc(widget.event.id)
+        .snapshots()
+        .listen((eventDoc) {
+      if (eventDoc.exists && mounted) {
+        setState(() {
+          _currentEvent = EventModel.fromFirestore(eventDoc);
+        });
+      }
+    });
+
+    // Listen to user's CONFIRMED reservation for this event only
+    _reservationSubscription = _db
+        .collection('reservations')
+        .where('eventId', isEqualTo: widget.event.id)
+        .where('userId', isEqualTo: _auth.currentUser?.uid ?? '')
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        // Only show confirmed reservations, filter out cancelled ones
+        final confirmedReservations = snapshot.docs
+            .where((doc) {
+              final status = (doc.data()['status'] as String).toLowerCase();
+              return status == 'confirmed' || status == 'confirmée';
+            })
+            .toList();
+
+        if (confirmedReservations.isNotEmpty) {
+          setState(() {
+            _userReservation =
+                ReservationModel.fromFirestore(confirmedReservations.first);
+          });
+        } else {
+          setState(() {
+            _userReservation = null;
+          });
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
     _locationScrollController.dispose();
+    _eventSubscription?.cancel();
+    _reservationSubscription?.cancel();
     super.dispose();
   }
 
@@ -98,14 +153,17 @@ class _EventDetailPageState extends State<EventDetailPage>
           await _reviewService.getAverageRatingAndCount(widget.event.id);
       final hasReviewedRes =
           await _reviewService.hasUserReviewed(widget.event.id);
-      final userReserv = await _reservationService.getUserReservationForEvent(widget.event.id);
+      
+      // Don't load user reservation here - let the real-time listener handle it
+      // This prevents showing cancelled reservations
+      
       if (mounted) {
         setState(() {
           _isFavorite = isFavRes;
           _averageRating = ratingRes['rating'] as double;
           _reviewCount = ratingRes['count'] as int;
           _hasReviewed = hasReviewedRes;
-          _userReservation = userReserv;
+          // _userReservation will be set by the real-time listener
           _initialLoadDone = true;
         });
       }
@@ -206,7 +264,7 @@ class _EventDetailPageState extends State<EventDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final event = widget.event;
+    final event = _currentEvent;
     final dayFormat = DateFormat('dd').format(event.date);
     final monthFormat = DateFormat('MMM', 'fr').format(event.date).toUpperCase();
     final timeFormat = DateFormat('HH:mm', 'fr').format(event.date);
@@ -919,7 +977,7 @@ class _EventDetailPageState extends State<EventDetailPage>
   }
 
   Widget _buildBookButton() {
-    final event = widget.event;
+    final event = _currentEvent;
     final isLowStock = event.availablePlaces <= 10;
     
     return Container(

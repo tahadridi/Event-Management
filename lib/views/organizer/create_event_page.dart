@@ -93,6 +93,22 @@ class _CreateEventPageState extends State<CreateEventPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
     _animationController.forward();
+
+    // Add listeners to auto-calculate capacity when rows/seats change
+    _numberOfRowsController.addListener(_updateCapacityFromSeats);
+    _seatsPerRowController.addListener(_updateCapacityFromSeats);
+  }
+
+  void _updateCapacityFromSeats() {
+    if (!_hasSeats) return;
+    
+    final rows = int.tryParse(_numberOfRowsController.text) ?? 0;
+    final seatsPerRow = int.tryParse(_seatsPerRowController.text) ?? 0;
+    
+    if (rows > 0 && seatsPerRow > 0) {
+      final totalCapacity = rows * seatsPerRow;
+      _capacityController.text = totalCapacity.toString();
+    }
   }
 
   @override
@@ -102,6 +118,8 @@ class _CreateEventPageState extends State<CreateEventPage>
     _locationController.dispose();
     _capacityController.dispose();
     _priceController.dispose();
+    _seatsPerRowController.removeListener(_updateCapacityFromSeats);
+    _numberOfRowsController.removeListener(_updateCapacityFromSeats);
     _seatsPerRowController.dispose();
     _numberOfRowsController.dispose();
     _frontSeatPriceController.dispose();
@@ -732,23 +750,103 @@ class _CreateEventPageState extends State<CreateEventPage>
                           icon: Icons.people_rounded,
                           isSmallScreen: isSmallScreen,
                           children: [
-                            _buildModernInputField(
-                              controller: _capacityController,
-                              label: 'Capacité',
-                              hint: 'Nombre de places disponibles',
-                              icon: Icons.people_rounded,
-                              isRequired: true,
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'La capacité est requise';
-                                }
-                                if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                                  return 'Entrez un nombre valide supérieur à 0';
-                                }
-                                return null;
-                              },
-                            ),
+                            // Show manual capacity only when seat selection is disabled
+                            if (!_hasSeats)
+                              _buildModernInputField(
+                                controller: _capacityController,
+                                label: 'Capacité',
+                                hint: 'Nombre de places disponibles',
+                                icon: Icons.people_rounded,
+                                isRequired: true,
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'La capacité est requise';
+                                  }
+                                  if (int.tryParse(value) == null || int.parse(value) <= 0) {
+                                    return 'Entrez un nombre valide supérieur à 0';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            // Show calculated capacity when seat selection is enabled
+                            if (_hasSeats)
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: success.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: success.withOpacity(0.3),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_rounded,
+                                          color: success,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Capacité calculée',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: success,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'La capacité totale est automatiquement calculée en fonction du nombre de rangées et de places',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Total de places',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: textSecondary,
+                                            ),
+                                          ),
+                                          Text(
+                                            _capacityController.text.isNotEmpty
+                                                ? _capacityController.text
+                                                : '0',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: midnightBlue,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 16),
                             Container(
                               padding: const EdgeInsets.all(16),
@@ -1558,68 +1656,46 @@ class _CreateEventPageState extends State<CreateEventPage>
   }
 
   Widget _buildDatePickerField() {
-  return GestureDetector(
-    onTap: _selectDate,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cream,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: midnightBlue.withOpacity(0.2),
-          width: 1,
+    return GestureDetector(
+      onTap: _selectDate,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: 'Date',
+            prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF6366F1), size: 20),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(20),
+              borderSide: BorderSide.none,
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          ),
+          child: Text(
+            _selectedDate != null
+                ? DateFormat('dd MMM yyyy').format(_selectedDate!)
+                : 'Choisissez une date',
+            style: TextStyle(
+              fontSize: 16,
+              color: _selectedDate != null ? Colors.grey[800] : Colors.grey[500],
+              fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: midnightBlue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.calendar_today_rounded,
-              color: midnightBlue,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Date',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: midnightBlue.withOpacity(0.5),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _selectedDate != null
-                      ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
-                      : 'Sélectionner une date',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _selectedDate != null ? textPrimary : textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.arrow_drop_down_rounded,
-            color: midnightBlue.withOpacity(0.5),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildTimePickerField() {
     return Column(

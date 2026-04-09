@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import '../../models/event_model.dart';
 import '../../models/seat_model.dart';
 import '../../models/reservation_model.dart';
@@ -32,6 +33,9 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
   bool _isLoading = true;
   String? _hoveredSeatId;
 
+  // Listener for real-time reservation updates
+  late final StreamSubscription<QuerySnapshot>? _reservationSubscription;
+
   // Color palette - Midnight Blue & Cream (matching your design)
   static const Color midnightBlue = Color(0xFF081F5C);
   static const Color cream = Color(0xFFF8F3EA);
@@ -47,10 +51,20 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
   void initState() {
     super.initState();
     _loadSeats();
+    // Set up real-time listener for reservation updates
+    _reservationSubscription = _db
+        .collection('reservations')
+        .where('eventId', isEqualTo: widget.event.id)
+        .snapshots()
+        .listen((_) {
+          // When reservations change, reload them
+          _loadReservations();
+        });
   }
 
   @override
   void dispose() {
+    _reservationSubscription?.cancel();
     super.dispose();
   }
 
@@ -83,9 +97,15 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
   Future<void> _loadReservations() async {
     try {
       final userId = _auth.currentUser?.uid;
+      
+      // Clear old booked seats before reloading
+      _bookedSeatIds.clear();
+      _userBookedSeatIds.clear();
+      
       final querySnapshot = await _db
           .collection('reservations')
           .where('eventId', isEqualTo: widget.event.id)
+          .where('status', isEqualTo: 'confirmed')
           .get();
 
       for (final doc in querySnapshot.docs) {
@@ -111,6 +131,9 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
           }
         }
       }
+      
+      // Trigger update
+      setState(() {});
     } catch (e) {
       // Silently fail for reservation loading
     }

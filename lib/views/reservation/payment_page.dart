@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import '../../models/event_model.dart';
 import '../../models/seat_model.dart';
 import '../../models/reservation_model.dart';
@@ -121,36 +122,99 @@ class _PaymentPageState extends State<PaymentPage> {
     }
   }
 
-  bool get _isFormValid {
-    final cardClean = _cardNumberController.text.replaceAll(' ', '');
-    return cardClean.length >= 15 &&
-        _cardHolderController.text.trim().length >= 3 &&
-        _expiryController.text.length == 5 &&
-        _cvvController.text.length >= 3;
-  }
-
   Future<void> _confirmPayment() async {
-    if (!_isFormValid && widget.totalPrice > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Veuillez remplir tous les champs correctement'),
-          backgroundColor: PaymentTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser!;
-      await Future.delayed(const Duration(seconds: 2));
+      // For free events, skip payment
+      if (widget.totalPrice == 0) {
+        print('DEBUG: Free event - creating reservation directly');
+        await _createReservation('free');
+        return;
+      }
 
+      // For paid events in test mode, show a simple confirmation dialog instead of Stripe sheet
+      print('DEBUG: Paid event - showing payment confirmation dialog');
+      
+      if (!mounted) return;
+      
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text(
+              'Confirmer le paiement',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Montant: ${widget.totalPrice.toStringAsFixed(2)} TND'),
+                const SizedBox(height: 16),
+                const Text(
+                  'Mode test - Paiement simulé\n\nEn production, vous serez redirigé vers Stripe.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(
+                  backgroundColor: PaymentTheme.midnightBlue,
+                ),
+                child: const Text(
+                  'Confirmer le paiement',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmed != true) {
+        print('DEBUG: User cancelled payment');
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
+      print('DEBUG: User confirmed payment - creating reservation');
+      await _createReservation('stripe_test');
+      
+    } catch (e) {
+      print('DEBUG: Exception - $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: PaymentTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _createReservation(String paymentId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
       final selectedSeatNumbers = widget.selectedSeats?.map((s) => s.seatNumber).toList() ?? [];
+
+      print('DEBUG: Creating reservation with paymentId: $paymentId');
 
       final docRef = await FirebaseFirestore.instance
           .collection('reservations')
@@ -164,16 +228,20 @@ class _PaymentPageState extends State<PaymentPage> {
         'status': 'confirmed',
         'organizerId': widget.event.organizerId,
         'selectedSeats': selectedSeatNumbers,
+        'paymentId': paymentId,
         'createdAt': Timestamp.now(),
       });
+
+      print('DEBUG: Reservation created with ID: ${docRef.id}');
 
       await FirebaseFirestore.instance
           .collection('events')
           .doc(widget.event.id)
           .update({
-        'availablePlaces':
-            widget.event.availablePlaces - widget.numberOfSeats,
+        'availablePlaces': widget.event.availablePlaces - widget.numberOfSeats,
       });
+
+      print('DEBUG: Event updated with available places');
 
       final reservation = ReservationModel(
         id: docRef.id,
@@ -189,27 +257,48 @@ class _PaymentPageState extends State<PaymentPage> {
         selectedSeats: selectedSeatNumbers,
       );
 
+      print('DEBUG: Attempting navigation to confirmation page...');
+
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
+        // Clear loading state before navigation
+        setState(() => _isLoading = false);
+        
+        print('DEBUG: Navigating...');
+        await Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => ConfirmationPage(reservation: reservation),
           ),
         );
+        print('DEBUG: Navigation complete');
+      } else {
+        print('DEBUG: Widget not mounted, skipping navigation');
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: PaymentTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      print('DEBUG: Error creating reservation - $e');
+      print('DEBUG: Error type: ${e.runtimeType}');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: PaymentTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to card number changes to update card brand
+    _cardNumberController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -768,7 +857,6 @@ class _PaymentPageState extends State<PaymentPage> {
       maxLength: maxLength,
       onChanged: (v) {
         onChanged?.call(v);
-        setState(() {});
       },
       decoration: InputDecoration(
         hintText: hint,
