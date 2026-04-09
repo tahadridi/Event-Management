@@ -1,8 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:dio/dio.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
+import '../../services/seat_service.dart';
+import '../../services/notification_service.dart';
 import 'place_picker_page.dart';
 
 class EditEventPage extends StatefulWidget {
@@ -37,6 +44,10 @@ class _EditEventPageState extends State<EditEventPage>
   late double? _latitude;
   late double? _longitude;
 
+  File? _selectedImage;
+  String? _imageUrl;
+  bool _isUploadingImage = false;
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
@@ -52,6 +63,20 @@ class _EditEventPageState extends State<EditEventPage>
   ];
 
   final EventService _eventService = EventService();
+  final NotificationService _notificationService = NotificationService();
+  final ImagePicker _picker = ImagePicker();
+  final Dio _dio = Dio();
+
+  // Color palette
+  static const Color midnightBlue = Color(0xFF081F5C);
+  static const Color midnightBlueLight = Color(0xFF1A3A7C);
+  static const Color cream = Color(0xFFF8F3EA);
+  static const Color creamDark = Color(0xFFF5EDE2);
+  static const Color accent = Color(0xFFE67E22);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
 
   @override
   void initState() {
@@ -83,8 +108,15 @@ class _EditEventPageState extends State<EditEventPage>
     _selectedTime = TimeOfDay.fromDateTime(widget.event.date);
     _isFree = widget.event.price == 0;
     _hasSeats = widget.event.hasSeats;
+    
+    // Fix: If hasSeats is true, force isFree to false
+    if (_hasSeats) {
+      _isFree = false;
+    }
+    
     _latitude = widget.event.latitude;
     _longitude = widget.event.longitude;
+    _imageUrl = widget.event.imageUrl;
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
@@ -113,6 +145,181 @@ class _EditEventPageState extends State<EditEventPage>
     _regularSeatPriceController.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erreur lors de la sélection de l\'image: $e');
+    }
+  }
+
+  // Cloudinary Configuration
+  String get CLOUDINARY_CLOUD_NAME => dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '';
+  String get CLOUDINARY_UPLOAD_PRESET => dotenv.env['CLOUDINARY_UPLOAD_PRESET'] ?? '';
+
+  Future<String?> _uploadImage() async {
+    if (_selectedImage == null) return null;
+    
+    setState(() {
+      _isUploadingImage = true;
+    });
+    
+    try {
+      if (!await _selectedImage!.exists()) {
+        throw Exception('Le fichier image n\'existe pas');
+      }
+      
+      final fileSize = await _selectedImage!.length();
+      print('Taille du fichier: ${fileSize / (1024 * 1024)} MB');
+      
+      if (fileSize > 10 * 1024 * 1024) {
+        throw Exception('L\'image est trop volumineuse (max 10 MB)');
+      }
+
+      print('Tentative d\'upload vers Cloudinary...');
+      print('Cloud Name: ${CLOUDINARY_CLOUD_NAME}');
+      print('Upload Preset: ${CLOUDINARY_UPLOAD_PRESET}');
+
+      // Create FormData for unsigned Cloudinary upload with preset
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(_selectedImage!.path),
+        'upload_preset': CLOUDINARY_UPLOAD_PRESET,
+        'folder': 'event_project',
+      });
+
+      // Upload to Cloudinary (unsigned with preset)
+      final response = await _dio.post(
+        'https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload',
+        data: formData,
+      );
+
+      print('Response Status: ${response.statusCode}');
+      print('Response Data: ${response.data}');
+
+      if (response.statusCode == 200) {
+        final downloadUrl = response.data['secure_url'];
+        print('Upload terminé avec succès');
+        print('URL obtenue: $downloadUrl');
+        
+        setState(() {
+          _imageUrl = downloadUrl;
+          _isUploadingImage = false;
+        });
+
+        return downloadUrl;
+      } else {
+        print('Erreur Cloudinary: ${response.statusCode} - ${response.data}');
+        throw Exception('Échec: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      print('Erreur d\'upload: $e');
+      setState(() {
+        _isUploadingImage = false;
+      });
+      _showErrorSnackBar('Erreur d\'upload: $e');
+      return null;
+    }
+  }
+
+  void _showImagePickerDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildModalOption(
+              icon: Icons.photo_library_rounded,
+              title: 'Choisir depuis la galerie',
+              color: midnightBlue,
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            _buildModalOption(
+              icon: Icons.camera_alt_rounded,
+              title: 'Prendre une photo',
+              color: midnightBlue,
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            if (_selectedImage != null || _imageUrl != null)
+              _buildModalOption(
+                icon: Icons.delete_rounded,
+                title: 'Supprimer l\'image',
+                color: error,
+                isDestructive: true,
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _selectedImage = null;
+                  });
+                },
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModalOption({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 24),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: isDestructive ? error : textPrimary,
+        ),
+      ),
+      onTap: onTap,
+    );
   }
 
   Future<void> _selectDate() async {
@@ -164,9 +371,71 @@ class _EditEventPageState extends State<EditEventPage>
     }
   }
 
+  bool _validateSeatsConfig() {
+    if (!_hasSeats) return true;
+    
+    if (_numberOfRowsController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le nombre de rangées');
+      return false;
+    }
+    if (_seatsPerRowController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le nombre de places par rangée');
+      return false;
+    }
+    if (_frontSeatPriceController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le prix des sièges avant');
+      return false;
+    }
+    if (_regularSeatPriceController.text.isEmpty) {
+      _showErrorSnackBar('Veuillez entrer le prix des sièges réguliers');
+      return false;
+    }
+
+    final rows = int.tryParse(_numberOfRowsController.text) ?? 0;
+    final seats = int.tryParse(_seatsPerRowController.text) ?? 0;
+    
+    if (rows <= 0 || rows > 26) {
+      _showErrorSnackBar('Le nombre de rangées doit être entre 1 et 26');
+      return false;
+    }
+    if (seats <= 0 || seats > 20) {
+      _showErrorSnackBar('Le nombre de places par rangée doit être entre 1 et 20');
+      return false;
+    }
+    if (double.tryParse(_frontSeatPriceController.text) == null) {
+      _showErrorSnackBar('Prix siège avant invalide');
+      return false;
+    }
+    if (double.tryParse(_regularSeatPriceController.text) == null) {
+      _showErrorSnackBar('Prix siège régulier invalide');
+      return false;
+    }
+    
+    return true;
+  }
+
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      _updateEvent();
+      if (_selectedDate == null) {
+        _showErrorSnackBar('Veuillez sélectionner une date');
+        return;
+      }
+
+      if (_selectedTime == null) {
+        _showErrorSnackBar('Veuillez sélectionner une heure');
+        return;
+      }
+
+      if (_latitude == null || _longitude == null) {
+        _showErrorSnackBar('Veuillez sélectionner un lieu sur la carte');
+        return;
+      }
+
+      if (!_validateSeatsConfig()) {
+        return;
+      }
+
+      _updateEventWithImageUpload();
     }
   }
 
@@ -183,34 +452,46 @@ class _EditEventPageState extends State<EditEventPage>
     );
   }
 
-  void _updateEvent() async {
+  void _updateEventWithImageUpload() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Validate seating configuration if hasSeats is enabled
-      if (_hasSeats) {
-        if (_numberOfRowsController.text.isEmpty || _seatsPerRowController.text.isEmpty ||
-            _frontSeatPriceController.text.isEmpty || _regularSeatPriceController.text.isEmpty) {
-          setState(() => _isLoading = false);
-          _showErrorSnackBar('Veuillez remplir tous les champs de configuration des sièges');
+      // Upload image if a new one was selected
+      String? finalImageUrl = _imageUrl;
+      if (_selectedImage != null) {
+        finalImageUrl = await _uploadImage();
+        if (finalImageUrl == null) {
+          _showErrorSnackBar('Erreur lors du téléchargement de l\'image');
           return;
         }
       }
 
-      await _eventService.updateEvent(
-        eventId: widget.event.id,
+      // Create new event model with updated values
+      final newDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      final updatedEvent = EventModel(
+        id: widget.event.id,
         title: _titleController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
         location: _locationController.text,
-        date: _selectedDate,
-        time: _selectedTime,
+        date: newDateTime,
         totalPlaces: int.parse(_capacityController.text),
+        availablePlaces: widget.event.availablePlaces,
         price: (_hasSeats || _isFree) ? 0.0 : double.parse(_priceController.text),
-        latitude: _latitude,
-        longitude: _longitude,
+        latitude: _latitude ?? 0.0,
+        longitude: _longitude ?? 0.0,
+        imageUrl: finalImageUrl,
+        organizerId: widget.event.organizerId,
+        organizerName: widget.event.organizerName,
         hasSeats: _hasSeats,
         numberOfRows: _hasSeats ? int.parse(_numberOfRowsController.text) : 0,
         seatsPerRow: _hasSeats ? int.parse(_seatsPerRowController.text) : 0,
@@ -218,11 +499,53 @@ class _EditEventPageState extends State<EditEventPage>
         regularSeatPrice: _hasSeats ? double.parse(_regularSeatPriceController.text) : 0.0,
       );
 
+      // Check if changes are major (date or location changed)
+      final isMajor = _notificationService.isMajorChange(widget.event, updatedEvent);
+
+      // Update event in database
+      await _eventService.updateEvent(
+        eventId: updatedEvent.id,
+        title: updatedEvent.title,
+        description: updatedEvent.description,
+        category: updatedEvent.category,
+        location: updatedEvent.location,
+        date: updatedEvent.date,
+        time: TimeOfDay.fromDateTime(updatedEvent.date),
+        totalPlaces: updatedEvent.totalPlaces,
+        price: updatedEvent.price,
+        latitude: updatedEvent.latitude,
+        longitude: updatedEvent.longitude,
+        hasSeats: updatedEvent.hasSeats,
+        numberOfRows: updatedEvent.numberOfRows,
+        seatsPerRow: updatedEvent.seatsPerRow,
+        frontSeatPrice: updatedEvent.frontSeatPrice,
+        regularSeatPrice: updatedEvent.regularSeatPrice,
+      );
+
+      // Update image URL separately if a new image was uploaded
+      if (_selectedImage != null && finalImageUrl != null) {
+        await FirebaseFirestore.instance.collection('events').doc(updatedEvent.id).update({
+          'imageUrl': finalImageUrl,
+        });
+      }
+
+      // If major changes detected, notify all participants
+      if (isMajor) {
+        await _notificationService.notifyParticipantsOfChanges(
+          eventId: updatedEvent.id,
+          eventTitle: updatedEvent.title,
+          oldEvent: widget.event,
+          newEvent: updatedEvent,
+        );
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Événement mis à jour avec succès !'),
-            backgroundColor: const Color(0xFF10B981),
+            content: Text(isMajor 
+              ? 'Événement mis à jour ! Les participants ont été notifiés.'
+              : 'Événement mis à jour avec succès !'),
+            backgroundColor: success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -247,7 +570,7 @@ class _EditEventPageState extends State<EditEventPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F3EA),
+      backgroundColor: cream,
       appBar: AppBar(
         title: const Text(
           'Modifier l\'événement',
@@ -255,12 +578,12 @@ class _EditEventPageState extends State<EditEventPage>
             fontSize: 28,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
-            color: Color(0xFF081F5C),
+            color: midnightBlue,
           ),
         ),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF081F5C),
+        foregroundColor: midnightBlue,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         centerTitle: false,
         toolbarHeight: 100,
@@ -270,8 +593,8 @@ class _EditEventPageState extends State<EditEventPage>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF8F3EA),
-                Color(0xFFF5EDE2),
+                cream,
+                creamDark,
               ],
             ),
           ),
@@ -292,6 +615,10 @@ class _EditEventPageState extends State<EditEventPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Image Picker Section
+                  _buildImagePickerSection(),
+                  const SizedBox(height: 24),
+
                   // Header Section
                   Container(
                     margin: const EdgeInsets.only(bottom: 24),
@@ -370,46 +697,8 @@ class _EditEventPageState extends State<EditEventPage>
                   ),
                   const SizedBox(height: 20),
 
-                  // Location Field with Place Picker
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLocationField(),
-                      if (_latitude != null && _longitude != null)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 12, top: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF081F5C).withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 12,
-                                  color: const Color(0xFF081F5C),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Coordonnées: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: const Color(0xFF081F5C).withOpacity(0.6),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  // Location Field with Place Picker - FIXED (removed readOnly)
+                  _buildLocationField(),
                   const SizedBox(height: 20),
 
                   // Date and Time Row
@@ -445,7 +734,7 @@ class _EditEventPageState extends State<EditEventPage>
                   ),
                   const SizedBox(height: 20),
 
-                  // Price Section
+                  // Price Section - Modified to work with seats
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -491,13 +780,13 @@ class _EditEventPageState extends State<EditEventPage>
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF081F5C),
+                                    color: _hasSeats ? Colors.grey : const Color(0xFF081F5C),
                                   ),
                                 ),
                               ),
                               Switch(
                                 value: _isFree,
-                                onChanged: (value) {
+                                onChanged: _hasSeats ? null : (value) {
                                   setState(() {
                                     _isFree = value;
                                     if (_isFree) {
@@ -510,7 +799,7 @@ class _EditEventPageState extends State<EditEventPage>
                             ],
                           ),
                         ),
-                        if (!_isFree)
+                        if (!_isFree && !_hasSeats)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                             child: _buildInputField(
@@ -521,8 +810,7 @@ class _EditEventPageState extends State<EditEventPage>
                               prefixText: 'TND ',
                               keyboardType: TextInputType.number,
                               validator: (value) {
-                                if (!_isFree &&
-                                    (value == null || value.isEmpty)) {
+                                if (!_isFree && !_hasSeats && (value == null || value.isEmpty)) {
                                   return 'Le prix est requis';
                                 }
                                 if (value != null &&
@@ -534,6 +822,195 @@ class _EditEventPageState extends State<EditEventPage>
                               },
                             ),
                           ),
+                        if (_hasSeats)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: midnightBlue.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: midnightBlue, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Le prix est défini par la configuration des sièges ci-dessous',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: midnightBlue,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Seating Configuration Section - Modified to disable when free event is selected
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      const Color(0xFF081F5C).withOpacity(_isFree ? 0.05 : 0.1),
+                                      const Color(0xFF1A3A7C).withOpacity(_isFree ? 0.05 : 0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _hasSeats ? Icons.event_seat : Icons.chair_alt,
+                                  color: _isFree ? Colors.grey : const Color(0xFF081F5C),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Sélection de places',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isFree ? Colors.grey : const Color(0xFF081F5C),
+                                  ),
+                                ),
+                              ),
+                              Switch(
+                                value: _hasSeats,
+                                onChanged: _isFree ? null : (value) {
+                                  setState(() {
+                                    _hasSeats = value;
+                                    // If enabling seats, disable free event
+                                    if (_hasSeats) {
+                                      _isFree = false;
+                                    }
+                                  });
+                                },
+                                activeColor: const Color(0xFF081F5C),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_hasSeats) ...[
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildInputField(
+                                    controller: _numberOfRowsController,
+                                    label: 'Rangées',
+                                    icon: Icons.layers_rounded,
+                                    hint: 'Ex: 8',
+                                    keyboardType: TextInputType.number,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Requis';
+                                      }
+                                      final n = int.tryParse(value);
+                                      if (n == null || n <= 0 || n > 26) {
+                                        return '1-26';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildInputField(
+                                    controller: _seatsPerRowController,
+                                    label: 'Places/rangée',
+                                    icon: Icons.event_seat_rounded,
+                                    hint: 'Ex: 12',
+                                    keyboardType: TextInputType.number,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Requis';
+                                      }
+                                      if (int.tryParse(value) == null) {
+                                        return 'Nombre';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                            child: _buildInputField(
+                              controller: _frontSeatPriceController,
+                              label: 'Prix - Sièges avant',
+                              icon: Icons.wallet_rounded,
+                              hint: 'Sièges premium',
+                              prefixText: 'TND ',
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Requis';
+                                }
+                                if (double.tryParse(value) == null) {
+                                  return 'Prix valide';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: _buildInputField(
+                              controller: _regularSeatPriceController,
+                              label: 'Prix - Autres sièges',
+                              icon: Icons.wallet_rounded
+,
+                              hint: 'Sièges réguliers',
+                              prefixText: 'TND ',
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Requis';
+                                }
+                                if (double.tryParse(value) == null) {
+                                  return 'Prix valide';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -551,7 +1028,7 @@ class _EditEventPageState extends State<EditEventPage>
                               borderRadius: BorderRadius.circular(16),
                             ),
                             side: BorderSide(
-                              color: const Color(0xFF081F5C).withOpacity(0.3),
+                              color: midnightBlue.withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),
@@ -560,7 +1037,7 @@ class _EditEventPageState extends State<EditEventPage>
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF081F5C),
+                              color: midnightBlue,
                             ),
                           ),
                         ),
@@ -570,7 +1047,7 @@ class _EditEventPageState extends State<EditEventPage>
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _submitForm,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF081F5C),
+                            backgroundColor: midnightBlue,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
@@ -583,8 +1060,7 @@ class _EditEventPageState extends State<EditEventPage>
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor:
-                                        AlwaysStoppedAnimation(Color(0xFFF8F3EA)),
+                                    valueColor: AlwaysStoppedAnimation(cream),
                                   ),
                                 )
                               : const Text(
@@ -592,7 +1068,7 @@ class _EditEventPageState extends State<EditEventPage>
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFF8F3EA),
+                                    color: cream,
                                   ),
                                 ),
                         ),
@@ -728,6 +1204,7 @@ class _EditEventPageState extends State<EditEventPage>
     );
   }
 
+  // FIXED: Removed readOnly and made it interactive
   Widget _buildLocationField() {
     return GestureDetector(
       onTap: () async {
@@ -742,7 +1219,7 @@ class _EditEventPageState extends State<EditEventPage>
           ),
         );
 
-        if (result != null) {
+        if (result != null && mounted) {
           setState(() {
             _latitude = result['latitude'];
             _longitude = result['longitude'];
@@ -764,7 +1241,7 @@ class _EditEventPageState extends State<EditEventPage>
         ),
         child: TextFormField(
           controller: _locationController,
-          readOnly: true,
+          enabled: false, // Make it disabled for typing but still tappable via GestureDetector
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Le lieu est requis';
@@ -894,6 +1371,149 @@ class _EditEventPageState extends State<EditEventPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePickerSection() {
+    return GestureDetector(
+      onTap: _showImagePickerDialog,
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _selectedImage != null || _imageUrl != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: _selectedImage != null
+                        ? Image.file(
+                            _selectedImage!,
+                            fit: BoxFit.cover,
+                          )
+                        : _imageUrl != null
+                            ? Image.network(
+                                _imageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: midnightBlue.withOpacity(0.1),
+                                    child: const Icon(Icons.image_not_supported),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: midnightBlue.withOpacity(0.1),
+                              ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.5),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        color: midnightBlue,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  if (_isUploadingImage)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: midnightBlue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add_photo_alternate_rounded,
+                      size: 48,
+                      color: midnightBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Ajouter une photo',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: midnightBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '(optionnel)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Appuyez pour changer',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

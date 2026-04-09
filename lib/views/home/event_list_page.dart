@@ -8,6 +8,7 @@ import '../../services/event_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/event_card.dart';
 import 'event_detail_page.dart';
+import 'notifications_page.dart';
 
 class _EventListTheme {
   // Midnight Blue & Cream Theme
@@ -290,33 +291,37 @@ class _EventListPageState extends State<EventListPage> {
                 child: SafeArea(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(20, headerPaddingTop, 20, headerPaddingBottom),
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Découvrir',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Découvrir',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: isSmallScreen ? 4 : 6),
-                            Text(
-                              'Trouvez votre prochain événement',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: subtitleFontSize,
-                                fontWeight: FontWeight.w500,
+                              SizedBox(height: isSmallScreen ? 4 : 6),
+                              Text(
+                                'Trouvez votre prochain événement',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: subtitleFontSize,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        SizedBox(width: 12),
+                        _buildNotificationBell(context),
                       ],
                     ),
                   ),
@@ -936,6 +941,70 @@ class _EventListPageState extends State<EventListPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNotificationBell(BuildContext context) {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _db
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUser.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final notificationCount = snapshot.data?.docs.length ?? 0;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsPage(),
+                    ),
+                  );
+                },
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+              ),
+              if (notificationCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      notificationCount > 99 ? '99+' : '$notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -491,6 +491,7 @@ class _MyEventsPageState extends State<MyEventsPage>
                 style: TextStyle(
                   fontSize: buttonFontSize,
                   fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
               style: ElevatedButton.styleFrom(
@@ -983,4 +984,4 @@ class _MyEventsPageState extends State<MyEventsPage>
     if (percentage < 70) return warning;
     return error;
   }
-}
+} 

@@ -27,7 +27,7 @@ class EventCard extends StatelessWidget {
     if (hasUserReservation) return 'Réservé';
     if (event.availablePlaces == 0) return 'Complet';
     if (event.availablePlaces <= (event.totalPlaces * 0.2)) return 'Dernières places';
-    if (event.availablePlaces < event.totalPlaces) return 'Quelques places';
+    if (event.availablePlaces < event.totalPlaces) return 'Disponible';
     return 'Disponible';
   }
 

@@ -21,9 +21,13 @@ class _UserProfilePageState extends State<UserProfilePage>
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _isChangingPassword = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -54,6 +58,9 @@ class _UserProfilePageState extends State<UserProfilePage>
     _nameController.dispose();
     _phoneController.dispose();
     _bioController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -94,6 +101,53 @@ class _UserProfilePageState extends State<UserProfilePage>
           _isSaving = false; 
         });
         _showSnackBar('Profil mis à jour avec succès !');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        _showSnackBar('Erreur: $e', isError: true);
+      }
+    }
+  }
+
+  Future<void> _changePassword() async {
+    if (_currentPasswordController.text.isEmpty) {
+      _showSnackBar('Veuillez entrer votre mot de passe actuel', isError: true);
+      return;
+    }
+    
+    if (_newPasswordController.text.isEmpty) {
+      _showSnackBar('Veuillez entrer un nouveau mot de passe', isError: true);
+      return;
+    }
+    
+    if (_newPasswordController.text.length < 6) {
+      _showSnackBar('Le mot de passe doit contenir au moins 6 caractères', isError: true);
+      return;
+    }
+    
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showSnackBar('Les mots de passe ne correspondent pas', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    
+    try {
+      await _authService.changePassword(
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
+      );
+      
+      if (mounted) {
+        setState(() { 
+          _isSaving = false;
+          _isChangingPassword = false;
+        });
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+        _showSnackBar('Mot de passe modifié avec succès !');
       }
     } catch (e) {
       if (mounted) {
@@ -394,9 +448,11 @@ class _UserProfilePageState extends State<UserProfilePage>
                   opacity: _fadeAnimation,
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: _isEditing
-                        ? _buildEditForm()
-                        : _buildViewMode(user),
+                    child: _isChangingPassword
+                        ? _buildChangePasswordForm()
+                        : _isEditing
+                            ? _buildEditForm()
+                            : _buildViewMode(user),
                   ),
                 ),
               ),
@@ -404,6 +460,121 @@ class _UserProfilePageState extends State<UserProfilePage>
           );
         },
       ),
+    );
+  }
+
+  Widget _buildChangePasswordForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Changer le mot de passe',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Créez un mot de passe fort pour sécuriser votre compte',
+          style: TextStyle(
+            fontSize: 13,
+            color: textSecondary,
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        _buildFormField(
+          controller: _currentPasswordController,
+          label: 'Mot de passe actuel',
+          hint: 'Entrez votre mot de passe actuel',
+          icon: Icons.lock_outline,
+          isPassword: true,
+        ),
+        const SizedBox(height: 16),
+        
+        _buildFormField(
+          controller: _newPasswordController,
+          label: 'Nouveau mot de passe',
+          hint: 'Entrez un nouveau mot de passe (min 6 caractères)',
+          icon: Icons.lock_outline,
+          isPassword: true,
+        ),
+        const SizedBox(height: 16),
+        
+        _buildFormField(
+          controller: _confirmPasswordController,
+          label: 'Confirmer le mot de passe',
+          hint: 'Confirmez votre nouveau mot de passe',
+          icon: Icons.verified_outlined,
+          isPassword: true,
+        ),
+        const SizedBox(height: 32),
+        
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() {
+                  _isChangingPassword = false;
+                  _currentPasswordController.clear();
+                  _newPasswordController.clear();
+                  _confirmPasswordController.clear();
+                }),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  side: BorderSide(color: midnightBlue.withOpacity(0.3), width: 1.5),
+                ),
+                child: Text(
+                  'Annuler',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _changePassword,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF9B59B6),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Changer le mot de passe',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
@@ -460,7 +631,7 @@ class _UserProfilePageState extends State<UserProfilePage>
           value: user.bio.isEmpty ? 'Aucune bio pour le moment' : user.bio,
           multiline: true,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         
         _buildInfoTile(
           icon: Icons.email_outlined,
@@ -489,6 +660,16 @@ class _UserProfilePageState extends State<UserProfilePage>
           subtitle: 'Mettre à jour vos informations',
           color: midnightBlue,
           onTap: () => setState(() => _isEditing = true),
+        ),
+        const SizedBox(height: 8),
+        
+        // Bouton Changer le mot de passe
+        _buildActionButton(
+          icon: Icons.lock_outlined,
+          label: 'Changer le mot de passe',
+          subtitle: 'Mettre à jour votre sécurité',
+          color: Color(0xFF9B59B6),
+          onTap: () => setState(() => _isChangingPassword = true),
         ),
         const SizedBox(height: 8),
         
@@ -827,44 +1008,61 @@ class _UserProfilePageState extends State<UserProfilePage>
     required IconData icon,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
+    bool isPassword = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          prefixIcon: Icon(icon, color: midnightBlue, size: 22),
-          border: OutlineInputBorder(
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool showPassword = !isPassword;
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+          child: TextField(
+            controller: controller,
+            maxLines: isPassword ? 1 : maxLines,
+            keyboardType: keyboardType,
+            obscureText: isPassword && showPassword,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              prefixIcon: Icon(icon, color: midnightBlue, size: 22),
+              suffixIcon: isPassword
+                  ? GestureDetector(
+                      onTap: () => setState(() {}),
+                      child: Icon(
+                        showPassword ? Icons.visibility_off : Icons.visibility,
+                        color: midnightBlue,
+                        size: 22,
+                      ),
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: midnightBlue, width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: midnightBlue, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        ),
-      ),
+        );
+      },
     );
   }
 

@@ -165,7 +165,12 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
       _searchResults = [];
       _searchController.clear();
     });
-    _mapController.move(LatLng(_latitude, _longitude), 16);
+    // Use Future.delayed to ensure map is ready before moving
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _mapController.move(LatLng(_latitude, _longitude), 16);
+      }
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -196,7 +201,11 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
           desiredAccuracy: LocationAccuracy.high,
         );
         if (mounted) {
-          _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
+            }
+          });
           await _onMapTapped(LatLng(pos.latitude, pos.longitude));
         }
       } else if (perm == LocationPermission.denied) {
@@ -250,8 +259,8 @@ class _PlacePickerPageState extends State<PlacePickerPage> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: LatLng(_latitude, _longitude),
-              initialZoom: 13,
+              center: LatLng(_latitude, _longitude),
+              zoom: 13,
               onTap: (_, latLng) => _onMapTapped(latLng),
             ),
             children: [

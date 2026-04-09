@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
 import '../../services/event_service.dart';
 import '../../services/seat_service.dart';
 import 'place_picker_page.dart';
@@ -58,7 +61,11 @@ class _CreateEventPageState extends State<CreateEventPage>
 
   final EventService _eventService = EventService();
   final ImagePicker _picker = ImagePicker();
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final Dio _dio = Dio();
+
+  // Cloudinary Configuration (loaded from .env file)
+  static String get CLOUDINARY_CLOUD_NAME => dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '';
+  static String get CLOUDINARY_UPLOAD_PRESET => dotenv.env['CLOUDINARY_UPLOAD_PRESET'] ?? '';
 
   // Color palette
   static const Color midnightBlue = Color(0xFF081F5C);
@@ -124,90 +131,69 @@ class _CreateEventPageState extends State<CreateEventPage>
   }
 
   Future<String?> _uploadImage() async {
-  if (_selectedImage == null) return null;
-  
-  setState(() {
-    _isUploadingImage = true;
-  });
-  
-  try {
-    if (!await _selectedImage!.exists()) {
-      throw Exception('Le fichier image n\'existe pas');
-    }
-    
-    final fileSize = await _selectedImage!.length();
-    print('Taille du fichier: ${fileSize / (1024 * 1024)} MB');
-    
-    if (fileSize > 10 * 1024 * 1024) {
-      throw Exception('L\'image est trop volumineuse (max 10 MB)');
-    }
-    
-    final String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-    final String storagePath = 'event_images/$fileName.jpg';
-    final Reference ref = _storage.ref().child(storagePath);
-    
-    print('Tentative d\'upload vers: $storagePath');
-    
-    final UploadTask uploadTask = ref.putFile(_selectedImage!);
-    
-    uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-      print('Progression: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
-    });
-    
-    final TaskSnapshot snapshot = await uploadTask;
-    
-    if (snapshot.state != TaskState.success) {
-      throw Exception('Échec du téléchargement: ${snapshot.state}');
-    }
-    
-    print('Upload terminé avec succès, récupération de l\'URL...');
-    
-    final String downloadUrl = await ref.getDownloadURL();
-    print('URL obtenue: $downloadUrl');
+    if (_selectedImage == null) return null;
     
     setState(() {
-      _imageUrl = downloadUrl;
-      _isUploadingImage = false;
+      _isUploadingImage = true;
     });
     
-    return downloadUrl;
-    
-  } on FirebaseException catch (e) {
-    print('FirebaseException - Code: ${e.code}, Message: ${e.message}');
-    
-    String errorMessage;
-    switch (e.code) {
-      case 'storage/object-not-found':
-        errorMessage = 'Le bucket Firebase Storage n\'est pas configuré correctement. Vérifiez votre console Firebase.';
-        break;
-      case 'storage/unauthorized':
-        errorMessage = 'Non autorisé à télécharger. Vérifiez les règles de sécurité.';
-        break;
-      case 'storage/canceled':
-        errorMessage = 'Téléchargement annulé.';
-        break;
-      case 'storage/unknown':
-        errorMessage = 'Erreur inconnue. Vérifiez votre connexion internet.';
-        break;
-      default:
-        errorMessage = 'Erreur Firebase: ${e.message}';
+    try {
+      if (!await _selectedImage!.exists()) {
+        throw Exception('Le fichier image n\'existe pas');
+      }
+      
+      final fileSize = await _selectedImage!.length();
+      print('Taille du fichier: ${fileSize / (1024 * 1024)} MB');
+      
+      if (fileSize > 10 * 1024 * 1024) {
+        throw Exception('L\'image est trop volumineuse (max 10 MB)');
+      }
+
+      print('Tentative d\'upload vers Cloudinary...');
+      print('Cloud Name: ${CLOUDINARY_CLOUD_NAME}');
+      print('Upload Preset: ${CLOUDINARY_UPLOAD_PRESET}');
+
+      // Create FormData for unsigned Cloudinary upload with preset
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(_selectedImage!.path),
+        'upload_preset': CLOUDINARY_UPLOAD_PRESET,
+        'folder': 'event_project',
+      });
+
+      // Upload to Cloudinary (unsigned with preset)
+      final response = await _dio.post(
+        'https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload',
+        data: formData,
+      );
+
+      print('Response Status: ${response.statusCode}');
+      print('Response Data: ${response.data}');
+
+      if (response.statusCode == 200) {
+        final downloadUrl = response.data['secure_url'];
+        print('Upload terminé avec succès');
+        print('URL obtenue: $downloadUrl');
+        
+        setState(() {
+          _imageUrl = downloadUrl;
+          _isUploadingImage = false;
+        });
+
+        return downloadUrl;
+      } else {
+        print('Erreur Cloudinary: ${response.statusCode} - ${response.data}');
+        throw Exception('Échec: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      print('Erreur d\'upload: $e');
+      setState(() {
+        _isUploadingImage = false;
+      });
+      _showErrorSnackBar('Erreur d\'upload: $e');
+      return null;
     }
-    
-    setState(() {
-      _isUploadingImage = false;
-    });
-    _showErrorSnackBar(errorMessage);
-    return null;
-    
-  } catch (e) {
-    print('Erreur générale: $e');
-    setState(() {
-      _isUploadingImage = false;
-    });
-    _showErrorSnackBar('Erreur: $e');
-    return null;
   }
-}
 
   void _showImagePickerDialog() {
     showModalBottomSheet(
@@ -779,7 +765,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Icon(
-                                      _isFree ? Icons.celebration_rounded : Icons.attach_money_rounded,
+                                      _isFree ? Icons.celebration_rounded : Icons.payments_rounded,
                                       color: midnightBlue,
                                       size: 22,
                                     ),
@@ -812,7 +798,9 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     onChanged: (value) {
                                       setState(() {
                                         _isFree = value;
-                                        if (_isFree || _hasSeats) {
+                                        // If free event is enabled, disable seat selection
+                                        if (_isFree) {
+                                          _hasSeats = false;
                                           _priceController.clear();
                                         }
                                       });
@@ -830,7 +818,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   controller: _priceController,
                                   label: 'Prix',
                                   hint: 'Prix par personne',
-                                  icon: Icons.attach_money_rounded,
+                                  icon: Icons.payments_rounded,
                                   isRequired: true,
                                   prefixText: 'TND ',
                                   keyboardType: TextInputType.number,
@@ -945,7 +933,9 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     onChanged: (value) {
                                       setState(() {
                                         _hasSeats = value;
-                                        if (_hasSeats && !_isFree) {
+                                        // If seat selection is enabled, disable free event
+                                        if (_hasSeats) {
+                                          _isFree = false;
                                           _priceController.clear();
                                         }
                                       });
@@ -963,7 +953,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                       child: _buildModernInputField(
                                         controller: _numberOfRowsController,
                                         label: 'Rangées',
-                                        hint: 'Ex: 8 (1-26)',
+                                        hint: 'Ex: 8',
                                         icon: Icons.layers_rounded,
                                         isRequired: true,
                                         keyboardType: TextInputType.number,
@@ -1006,7 +996,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   controller: _frontSeatPriceController,
                                   label: 'Prix - Sièges avant',
                                   hint: 'Sièges premium',
-                                  icon: Icons.attach_money_rounded,
+                                  icon: Icons.payments_rounded,
                                   isRequired: true,
                                   prefixText: 'TND ',
                                   keyboardType: TextInputType.number,
@@ -1025,7 +1015,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                   controller: _regularSeatPriceController,
                                   label: 'Prix - Autres sièges',
                                   hint: 'Sièges réguliers',
-                                  icon: Icons.attach_money_rounded,
+                                  icon: Icons.payments_rounded,
                                   isRequired: true,
                                   prefixText: 'TND ',
                                   keyboardType: TextInputType.number,
@@ -1330,25 +1320,37 @@ class _CreateEventPageState extends State<CreateEventPage>
     );
   }
 
+ 
   Widget _buildLocationField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Lieu',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: midnightBlue.withOpacity(0.6),
-              ),
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlacePickerPage(
+              initialLat: _latitude,
+              initialLng: _longitude,
+              initialLocationName: _locationController.text,
             ),
-            _buildRequiredAsterisk(),
-          ],
+          ),
+        );
+
+        if (result != null) {
+          setState(() {
+            _latitude = result['latitude'];
+            _longitude = result['longitude'];
+            _locationController.text = result['location_name'];
+          });
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: cream,
+          borderRadius: BorderRadius.circular(16),
         ),
-        const SizedBox(height: 8),
-        GestureDetector(
+        child: TextFormField(
+          controller: _locationController,
+          readOnly: true,
           onTap: () async {
             final result = await Navigator.push(
               context,
@@ -1369,65 +1371,59 @@ class _CreateEventPageState extends State<CreateEventPage>
               });
             }
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: cream,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Le lieu est requis';
+            }
+            return null;
+          },
+          style: TextStyle(
+            fontSize: 15,
+            color: textPrimary,
+          ),
+          decoration: InputDecoration(
+            labelText: 'Lieu',
+            labelStyle: TextStyle(
+              color: midnightBlue.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            hintText: 'Cliquez pour choisir un lieu sur la carte',
+            hintStyle: TextStyle(
+              color: textSecondary.withOpacity(0.6),
+            ),
+            prefixIcon: Icon(Icons.location_on_rounded, color: midnightBlue, size: 20),
+            suffixIcon: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: midnightBlue,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.map_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
-            child: TextFormField(
-              controller: _locationController,
-              readOnly: true,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Le lieu est requis';
-                }
-                return null;
-              },
-              style: TextStyle(
-                fontSize: 15,
-                color: textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Cliquez pour choisir un lieu sur la carte',
-                hintStyle: TextStyle(
-                  color: textSecondary.withOpacity(0.6),
-                ),
-                prefixIcon: Icon(Icons.location_on_rounded, color: midnightBlue, size: 20),
-                suffixIcon: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: midnightBlue,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.map_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: midnightBlue, width: 1.5),
-                ),
-                filled: true,
-                fillColor: cream,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: midnightBlue, width: 1.5),
+            ),
+            filled: true,
+            fillColor: cream,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
         ),
-      ],
+      ),
     );
   }
-
   Widget _buildImagePickerSection({bool isSmallScreen = false}) {
     return GestureDetector(
       onTap: _showImagePickerDialog,
@@ -1562,57 +1558,68 @@ class _CreateEventPageState extends State<CreateEventPage>
   }
 
   Widget _buildDatePickerField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Date',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: midnightBlue.withOpacity(0.6),
-              ),
-            ),
-            _buildRequiredAsterisk(),
-          ],
+  return GestureDetector(
+    onTap: _selectDate,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: cream,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: midnightBlue.withOpacity(0.2),
+          width: 1,
         ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _selectDate,
-          child: Container(
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: cream,
-              borderRadius: BorderRadius.circular(16),
+              color: midnightBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.calendar_today_rounded, color: midnightBlue, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: cream,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              ),
-              child: Text(
-                _selectedDate != null
-                    ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
-                    : 'Choisissez une date',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: _selectedDate != null ? textPrimary : textSecondary,
-                  fontWeight: _selectedDate != null ? FontWeight.w500 : FontWeight.normal,
-                ),
-              ),
+            child: Icon(
+              Icons.calendar_today_rounded,
+              color: midnightBlue,
+              size: 18,
             ),
           ),
-        ),
-      ],
-    );
-  }
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: midnightBlue.withOpacity(0.5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _selectedDate != null
+                      ? DateFormat('dd MMMM yyyy', 'fr_FR').format(_selectedDate!)
+                      : 'Sélectionner une date',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _selectedDate != null ? textPrimary : textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.arrow_drop_down_rounded,
+            color: midnightBlue.withOpacity(0.5),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildTimePickerField() {
     return Column(

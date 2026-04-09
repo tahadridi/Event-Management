@@ -109,4 +109,39 @@ class AuthService {
 
   // Stream de l'état de connexion
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Changer le mot de passe
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('Aucun utilisateur connecté');
+      }
+
+      // Créer une nouvelle authentification avec le mot de passe actuel
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+
+      // Réauthentifier l'utilisateur
+      await user.reauthenticateWithCredential(credential);
+
+      // Changer le mot de passe
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('Le mot de passe actuel est incorrect');
+      } else if (e.code == 'weak-password') {
+        throw Exception('Le nouveau mot de passe est trop faible');
+      } else {
+        throw Exception('Erreur: ${e.message}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
