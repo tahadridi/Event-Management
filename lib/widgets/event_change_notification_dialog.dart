@@ -49,9 +49,10 @@ class _EventChangeNotificationDialogState
       }
     } catch (e) {
       if (mounted) {
+        final errorMessage = _extractErrorMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            content: Text(errorMessage),
             backgroundColor: error,
           ),
         );
@@ -62,7 +63,23 @@ class _EventChangeNotificationDialogState
   }
 
   Future<void> _handleCancel() async {
-    // Show confirmation dialog
+    // Validate that we have the required data
+    final reservationId = widget.notification['reservationId'];
+    final eventId = widget.notification['eventId'];
+    
+    if (reservationId == null || eventId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur: données manquantes. Veuillez réessayer.'),
+            backgroundColor: error,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog — first button dismisses, second proceeds to cancel
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -71,10 +88,12 @@ class _EventChangeNotificationDialogState
           'Êtes-vous sûr de vouloir annuler votre participation à cet événement ?',
         ),
         actions: [
+          // Dismiss - labelled 'Annuler'
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Continuer'),
+            child: const Text('Annuler'),
           ),
+          // Confirm cancellation - labelled 'Continuer'
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -82,8 +101,8 @@ class _EventChangeNotificationDialogState
               try {
                 await _notificationService.cancelParticipationDueToChanges(
                   notificationId: _notificationId,
-                  reservationId: widget.notification['reservationId'],
-                  eventId: widget.notification['eventId'],
+                  reservationId: reservationId,
+                  eventId: eventId,
                 );
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -97,9 +116,10 @@ class _EventChangeNotificationDialogState
                 }
               } catch (e) {
                 if (mounted) {
+                  final errorMessage = _extractErrorMessage(e);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Erreur: $e'),
+                      content: Text(errorMessage),
                       backgroundColor: error,
                     ),
                   );
@@ -109,13 +129,24 @@ class _EventChangeNotificationDialogState
               }
             },
             child: const Text(
-              'Annuler',
+              'Continuer',
               style: TextStyle(color: error),
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _extractErrorMessage(dynamic exception) {
+    final exceptionString = exception.toString();
+    // Extract message from "Exception: message" format
+    if (exceptionString.startsWith('Exception: ')) {
+      return exceptionString.substring(11);
+    }
+    return exceptionString.isNotEmpty 
+        ? exceptionString 
+        : 'Une erreur s\'est produite. Veuillez réessayer.';
   }
 
   String _formatDate(dynamic timestamp) {
@@ -200,7 +231,7 @@ class _EventChangeNotificationDialogState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Message
+                    // Message with change summary
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -316,64 +347,105 @@ class _EventChangeNotificationDialogState
                         ],
                       ),
 
-                    const SizedBox(height: 24),
+                                    const SizedBox(height: 24),
 
-                    // Action buttons
-                    Row(
-                      children: [
-                        // Cancel participation button
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _isProcessing ? null : _handleCancel,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: const BorderSide(color: error),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Annuler',
-                              style: TextStyle(
-                                color: error,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Confirm attendance button
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isProcessing ? null : _handleAccept,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              backgroundColor: success,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: _isProcessing
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(cream),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Pas de soucis',
-                                    style: TextStyle(
-                                      color: cream,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
+                                    // Action buttons or readonly status
+                                    Builder(builder: (_) {
+                                      final status = (widget.notification['status'] ?? 'pending') as String;
+                                      if (status != 'pending') {
+                                        // If already handled, show a read-only status and hide buttons
+                                        String label;
+                                        Color bg;
+                                        Color txt;
+                                        if (status == 'accepted') {
+                                          label = 'Confirmé';
+                                          bg = success.withOpacity(0.12);
+                                          txt = success;
+                                        } else if (status == 'cancelled') {
+                                          label = 'Annulé';
+                                          bg = error.withOpacity(0.12);
+                                          txt = error;
+                                        } else {
+                                          label = 'En attente';
+                                          bg = accent.withOpacity(0.08);
+                                          txt = accent;
+                                        }
+                                        return Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: bg,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              label,
+                                              style: TextStyle(
+                                                color: txt,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      // Pending: show actionable buttons
+                                      return Row(
+                                        children: [
+                                          // Cancel participation button
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: _isProcessing ? null : _handleCancel,
+                                              style: OutlinedButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                                side: const BorderSide(color: error),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Annuler',
+                                                style: TextStyle(
+                                                  color: error,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // Confirm attendance button
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: _isProcessing ? null : _handleAccept,
+                                              style: ElevatedButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                                backgroundColor: success,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                              ),
+                                              child: _isProcessing
+                                                  ? const SizedBox(
+                                                      height: 20,
+                                                      width: 20,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        valueColor:
+                                                            AlwaysStoppedAnimation<Color>(cream),
+                                                      ),
+                                                    )
+                                                  : const Text(
+                                                      'Pas de soucis',
+                                                      style: TextStyle(
+                                                        color: cream,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }),
                   ],
                 ),
               ),

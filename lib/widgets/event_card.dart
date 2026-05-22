@@ -314,9 +314,9 @@ class EventCard extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    event.price == 0
+                                    event.isFree
                                         ? 'GRATUIT'
-                                        : '${event.price.toStringAsFixed(0)} TND',
+                                      : '${event.displayPrice.toStringAsFixed(0)} TND',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -586,9 +586,9 @@ class EventCard extends StatelessWidget {
                                       ],
                                     ),
                                     child: Text(
-                                      event.price == 0
+                                      event.isFree
                                           ? 'GRATUIT'
-                                          : '${event.price.toStringAsFixed(0)} TND',
+                                        : '${event.displayPrice.toStringAsFixed(0)} TND',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,

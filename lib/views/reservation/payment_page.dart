@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../models/event_model.dart';
 import '../../models/seat_model.dart';
 import '../../models/reservation_model.dart';
+import '../../services/payment_service.dart';
 import 'confirmation_page.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -126,6 +128,18 @@ class _PaymentPageState extends State<PaymentPage> {
     setState(() => _isLoading = true);
 
     try {
+      final publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
+      final secretKey = dotenv.env['STRIPE_SECRET_KEY'];
+
+      if (widget.totalPrice > 0 && (publishableKey == null || secretKey == null)) {
+        throw Exception('Stripe not configured in .env');
+      }
+
+      if (publishableKey != null && publishableKey.isNotEmpty) {
+        Stripe.publishableKey = publishableKey;
+        await Stripe.instance.applySettings();
+      }
+
       // For free events, skip payment
       if (widget.totalPrice == 0) {
         print('DEBUG: Free event - creating reservation directly');
@@ -133,63 +147,32 @@ class _PaymentPageState extends State<PaymentPage> {
         return;
       }
 
-      // For paid events in test mode, show a simple confirmation dialog instead of Stripe sheet
-      print('DEBUG: Paid event - showing payment confirmation dialog');
-      
-      if (!mounted) return;
-      
-      final confirmed = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            title: const Text(
-              'Confirmer le paiement',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Montant: ${widget.totalPrice.toStringAsFixed(2)} TND'),
-                const SizedBox(height: 16),
-                const Text(
-                  'Mode test - Paiement simulé\n\nEn production, vous serez redirigé vers Stripe.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(
-                  backgroundColor: PaymentTheme.midnightBlue,
-                ),
-                child: const Text(
-                  'Confirmer le paiement',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          );
-        },
+      final paymentIntent = await PaymentService.createPaymentIntent(
+        secretKey: secretKey!,
+        amount: widget.totalPrice,
+        currency: 'usd',
+        description: widget.event.title,
       );
 
-      if (confirmed != true) {
-        print('DEBUG: User cancelled payment');
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-        return;
+      final clientSecret = paymentIntent['client_secret'] as String?;
+      final paymentIntentId = paymentIntent['id'] as String?;
+
+      if (clientSecret == null || paymentIntentId == null) {
+        throw Exception('Impossible de créer le PaymentIntent');
       }
 
-      print('DEBUG: User confirmed payment - creating reservation');
-      await _createReservation('stripe_test');
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: 'Event Project',
+          style: ThemeMode.light,
+          allowsDelayedPaymentMethods: false,
+        ),
+      );
+
+      await Stripe.instance.presentPaymentSheet();
+
+      await _createReservation(paymentIntentId);
       
     } catch (e) {
       print('DEBUG: Exception - $e');

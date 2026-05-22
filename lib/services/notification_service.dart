@@ -300,11 +300,13 @@ class NotificationService {
         
         String changeDescription = '';
         if (oldEvent.date != newEvent.date) {
-          changeDescription = 'Date modifiée: ${_formatDate(oldEvent.date)} → ${_formatDate(newEvent.date)}';
+          final formattedOldDate = _formatDate(oldEvent.date);
+          final formattedNewDate = _formatDate(newEvent.date);
+          changeDescription = 'Date modifiée: $formattedOldDate\n– $formattedNewDate';
         }
         if (oldEvent.location != newEvent.location) {
-          if (changeDescription.isNotEmpty) changeDescription += ' | ';
-          changeDescription += 'Lieu: ${oldEvent.location} → ${newEvent.location}';
+          if (changeDescription.isNotEmpty) changeDescription += '\n';
+          changeDescription += 'Lieu modifié: ${oldEvent.location} → ${newEvent.location}';
         }
 
         batch.set(notificationRef, {

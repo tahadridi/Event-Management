@@ -267,16 +267,17 @@ class _BookingHistoryPageState extends State<BookingHistoryPage>
       padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 8, 20, 8),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: BookingTheme.midnightBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: BookingTheme.midnightBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.confirmation_number_outlined,
+              color: BookingTheme.midnightBlue,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),

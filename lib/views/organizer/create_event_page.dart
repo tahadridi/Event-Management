@@ -415,11 +415,11 @@ class _CreateEventPageState extends State<CreateEventPage>
       _showErrorSnackBar('Le nombre de places par rangée doit être entre 1 et 20');
       return false;
     }
-    if (double.tryParse(_frontSeatPriceController.text) == null) {
+    if (_parseFlexibleDouble(_frontSeatPriceController.text) == null) {
       _showErrorSnackBar('Prix siège avant invalide');
       return false;
     }
-    if (double.tryParse(_regularSeatPriceController.text) == null) {
+    if (_parseFlexibleDouble(_regularSeatPriceController.text) == null) {
       _showErrorSnackBar('Prix siège régulier invalide');
       return false;
     }
@@ -440,12 +440,34 @@ class _CreateEventPageState extends State<CreateEventPage>
     );
   }
 
+  double? _parseFlexibleDouble(String value) {
+    final normalized = value.trim().replaceAll(' ', '').replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
   void _createEvent(String? imageUrl) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      final price = _isFree ? 0.0 : _parseFlexibleDouble(_priceController.text);
+      final frontSeatPrice = _hasSeats ? _parseFlexibleDouble(_frontSeatPriceController.text) : 0.0;
+      final regularSeatPrice = _hasSeats ? _parseFlexibleDouble(_regularSeatPriceController.text) : 0.0;
+      final headlinePrice = _hasSeats
+          ? [frontSeatPrice, regularSeatPrice].whereType<double>().reduce((a, b) => a < b ? a : b)
+          : price;
+
+      if (!_isFree && !_hasSeats && price == null) {
+        _showErrorSnackBar('Entrez un prix valide');
+        return;
+      }
+      if (_hasSeats && (frontSeatPrice == null || regularSeatPrice == null)) {
+        _showErrorSnackBar('Entrez des prix de sièges valides');
+        return;
+      }
+
       final eventId = await _eventService.createEvent(
         title: _titleController.text,
         description: _descriptionController.text,
@@ -454,15 +476,15 @@ class _CreateEventPageState extends State<CreateEventPage>
         date: _selectedDate!,
         time: _selectedTime!,
         totalPlaces: int.parse(_capacityController.text),
-        price: _isFree ? 0.0 : double.parse(_priceController.text),
+        price: headlinePrice ?? 0.0,
         latitude: _latitude,
         longitude: _longitude,
         imageUrl: imageUrl,
         hasSeats: _hasSeats,
         numberOfRows: _hasSeats ? int.parse(_numberOfRowsController.text) : 0,
         seatsPerRow: _hasSeats ? int.parse(_seatsPerRowController.text) : 0,
-        frontSeatPrice: _hasSeats ? double.parse(_frontSeatPriceController.text) : 0.0,
-        regularSeatPrice: _hasSeats ? double.parse(_regularSeatPriceController.text) : 0.0,
+        frontSeatPrice: frontSeatPrice ?? 0.0,
+        regularSeatPrice: regularSeatPrice ?? 0.0,
       );
 
       if (_hasSeats) {
@@ -471,8 +493,8 @@ class _CreateEventPageState extends State<CreateEventPage>
           eventId: eventId,
           numberOfRows: int.parse(_numberOfRowsController.text),
           seatsPerRow: int.parse(_seatsPerRowController.text),
-          frontSeatPrice: double.parse(_frontSeatPriceController.text),
-          regularSeatPrice: double.parse(_regularSeatPriceController.text),
+          frontSeatPrice: frontSeatPrice ?? 0.0,
+          regularSeatPrice: regularSeatPrice ?? 0.0,
         );
       }
 
@@ -927,7 +949,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     }
                                     if (value != null &&
                                         value.isNotEmpty &&
-                                        double.tryParse(value) == null) {
+                                        _parseFlexibleDouble(value) == null) {
                                       return 'Entrez un prix valide';
                                     }
                                     return null;
@@ -1102,7 +1124,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     if (value == null || value.isEmpty) {
                                       return 'Requis';
                                     }
-                                    if (double.tryParse(value) == null) {
+                                    if (_parseFlexibleDouble(value) == null) {
                                       return 'Prix valide';
                                     }
                                     return null;
@@ -1121,7 +1143,7 @@ class _CreateEventPageState extends State<CreateEventPage>
                                     if (value == null || value.isEmpty) {
                                       return 'Requis';
                                     }
-                                    if (double.tryParse(value) == null) {
+                                    if (_parseFlexibleDouble(value) == null) {
                                       return 'Prix valide';
                                     }
                                     return null;

@@ -91,6 +91,15 @@ class _EventListPageState extends State<EventListPage> {
     super.dispose();
   }
 
+  String _extractErrorMessage(dynamic exception) {
+    final exceptionString = exception.toString();
+    // Extract message from "Exception: message" format
+    if (exceptionString.startsWith('Exception: ')) {
+      return exceptionString.substring(11);
+    }
+    return 'Une erreur s\'est produite. Veuillez réessayer.';
+  }
+
   Future<void> _loadFavorites() async {
     try {
       final favs = await _userService.getUserFavoritesStream().first;
@@ -164,7 +173,7 @@ class _EventListPageState extends State<EventListPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Erreur: ${e.toString()}',
+            _extractErrorMessage(e),
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 14,

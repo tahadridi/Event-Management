@@ -264,20 +264,17 @@ class _MapPageState extends State<MapPage>
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: midnightBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                color: midnightBlue,
-                size: 24,
-              ),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: midnightBlue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.map_outlined,
+              color: midnightBlue,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
@@ -286,7 +283,7 @@ class _MapPageState extends State<MapPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Carte des événements',
+                  'Mes événements',
                   style: TextStyle(
                     fontSize: isSmallScreen ? 24 : 28,
                     fontWeight: FontWeight.bold,

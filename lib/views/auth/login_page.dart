@@ -25,7 +25,6 @@ class _LoginPageState extends State<LoginPage>
   static const Color darkRed = Color(0xFF8B0000);
   static const Color darkRedLight = Color(0xFFB22222);
   static const Color darkBlue = Color(0xFF00008B);
-  static const Color darkBlueLight = Color(0xFF1A1AA5);
   static const Color background = Color(0xFFF5F5F5);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF1A1A2E);
@@ -55,6 +54,16 @@ class _LoginPageState extends State<LoginPage>
       curve: Curves.easeOut,
     ));
     _animationController.forward();
+    _loadRememberMePreference();
+  }
+
+  Future<void> _loadRememberMePreference() async {
+    final rememberMe = await _authService.getRememberMePreference();
+    if (mounted) {
+      setState(() {
+        _rememberMe = rememberMe;
+      });
+    }
   }
 
   @override
@@ -83,6 +92,15 @@ class _LoginPageState extends State<LoginPage>
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  String _extractErrorMessage(dynamic exception) {
+    final exceptionString = exception.toString();
+    // Extract message from "Exception: message" format
+    if (exceptionString.startsWith('Exception: ')) {
+      return exceptionString.substring(11);
+    }
+    return exceptionString;
   }
 
   void _login() async {
@@ -130,7 +148,7 @@ class _LoginPageState extends State<LoginPage>
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Erreur: ${e.toString()}');
+        _showSnackBar(_extractErrorMessage(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -255,13 +273,13 @@ class _LoginPageState extends State<LoginPage>
                 await _authService.sendPasswordResetEmail(email);
                 if (mounted) {
                   _showSnackBar(
-                    'Un email de réinitialisation a été envoyé à $email.\nVérifiez votre boîte de réception.',
+                    'Si un compte existe pour $email, un lien de réinitialisation a été envoyé. Vérifiez aussi votre boîte de réception et vos courriers indésirables.',
                     isError: false,
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  _showSnackBar(e.toString());
+                  _showSnackBar(_extractErrorMessage(e));
                 }
               } finally {
                 if (mounted) setState(() => _isLoading = false);
@@ -291,7 +309,6 @@ class _LoginPageState extends State<LoginPage>
     final year = DateTime.now().year;
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 480;
-    final isMediumScreen = screenWidth >= 480 && screenWidth < 768;
 
     // Responsive variables
     final appBarTitleFontSize = isSmallScreen ? 20.0 : 24.0;
@@ -611,8 +628,35 @@ class _LoginPageState extends State<LoginPage>
                           icon: Icons.g_mobiledata,
                           label: 'Google',
                           color: const Color(0xFFDB4437),
-                          onPressed: () {
-                            _showSnackBar('Fonctionnalité à venir', isError: false);
+                          onPressed: () async {
+                            if (_isLoading) return;
+                            setState(() => _isLoading = true);
+                            try {
+                              await _authService.signInWithGoogle(rememberMe: _rememberMe);
+                              if (!mounted) return;
+                              _showSnackBar('Connexion Google réussie!', isError: false);
+                              await Future.delayed(const Duration(milliseconds: 250));
+                              if (!mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (_, animation, __) => const HomePage(),
+                                  transitionsBuilder: (_, animation, __, child) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    );
+                                  },
+                                  transitionDuration: const Duration(milliseconds: 500),
+                                ),
+                              );
+                            } catch (e) {
+                              if (mounted) {
+                                _showSnackBar(_extractErrorMessage(e));
+                              }
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
+                            }
                           },
                           height: socialButtonHeight,
                           fontSize: socialButtonTextFontSize,

@@ -1,0 +1,51 @@
+@startuml
+left to right direction
+actor Utilisateur
+actor Organisateur
+actor Administrateur
+actor "Système de paiement" as Paiement
+
+package "Application - Gestion d'événements" {
+  usecase "S'inscrire / Se connecter" as UC_Login
+  usecase "Rechercher événements" as UC_Search
+  usecase "Voir détail événement" as UC_View
+  usecase "Sélectionner sièges" as UC_SelectSeats
+  usecase "Réserver sièges" as UC_Book
+  usecase "Payer réservation" as UC_Pay
+  usecase "Consulter réservations" as UC_MyBookings
+  usecase "Laisser avis" as UC_Review
+  usecase "Créer événement" as UC_Create
+  usecase "Modifier événement" as UC_Edit
+  usecase "Gérer sièges" as UC_ManageSeats
+  usecase "Télécharger images" as UC_UploadImages
+  usecase "Choisir emplacement (carte)" as UC_PickLocation
+  usecase "Consulter statistiques" as UC_Stats
+  usecase "Gérer utilisateurs / BD" as UC_AdminManage
+}
+
+Utilisateur --> UC_Login
+Utilisateur --> UC_Search
+Utilisateur --> UC_View
+Utilisateur --> UC_SelectSeats
+Utilisateur --> UC_Book
+Utilisateur --> UC_Pay
+Utilisateur --> UC_MyBookings
+Utilisateur --> UC_Review
+
+Organisateur --> UC_Login
+Organisateur --> UC_Create
+Organisateur --> UC_Edit
+Organisateur --> UC_ManageSeats
+Organisateur --> UC_Stats
+Organisateur --> UC_MyBookings
+
+Administrateur --> UC_AdminManage
+Administrateur --> UC_Stats
+
+Paiement --> UC_Pay
+
+UC_Book .> UC_SelectSeats : <<include>>
+UC_Create .> UC_UploadImages : <<include>>
+UC_Create .> UC_PickLocation : <<include>>
+UC_Pay .> UC_Book : <<include>>
+@enduml

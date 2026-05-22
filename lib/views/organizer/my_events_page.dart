@@ -748,7 +748,7 @@ class _MyEventsPageState extends State<MyEventsPage>
                           color: Colors.grey[300],
                         ),
                         _buildModernStatItem(
-                          value: event.price == 0 ? 'Gratuit' : '${event.price} DT',
+                          value: event.isFree ? 'Gratuit' : '${event.displayPrice.toStringAsFixed(0)} DT',
                           label: 'Prix',
                           icon: Icons.payments_rounded,
                           color: midnightBlue,

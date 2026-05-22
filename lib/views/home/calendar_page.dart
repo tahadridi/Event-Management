@@ -906,9 +906,9 @@ class _CalendarPageState extends State<CalendarPage>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        event.price == 0
+                        event.isFree
                             ? 'Gratuit'
-                            : '${event.price.toStringAsFixed(0)} TND',
+                          : '${event.displayPrice.toStringAsFixed(0)} TND',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 10 : 11,
                           fontWeight: FontWeight.bold,

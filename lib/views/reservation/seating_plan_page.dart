@@ -68,6 +68,29 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
     super.dispose();
   }
 
+  String _extractErrorMessage(dynamic exception) {
+    final exceptionString = exception.toString();
+    // Extract message from "Exception: message" format
+    if (exceptionString.startsWith('Exception: ')) {
+      return exceptionString.substring(11);
+    }
+    return 'Une erreur s\'est produite. Veuillez réessayer.';
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadSeats() async {
     try {
       final seats = await _seatService.getSeatsByEvent(widget.event.id);
@@ -80,16 +103,7 @@ class _SeatingPlanPageState extends State<SeatingPlanPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        _showErrorSnackBar(_extractErrorMessage(e));
       }
     }
   }

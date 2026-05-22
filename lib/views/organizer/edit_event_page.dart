@@ -402,11 +402,11 @@ class _EditEventPageState extends State<EditEventPage>
       _showErrorSnackBar('Le nombre de places par rangée doit être entre 1 et 20');
       return false;
     }
-    if (double.tryParse(_frontSeatPriceController.text) == null) {
+    if (_parseFlexibleDouble(_frontSeatPriceController.text) == null) {
       _showErrorSnackBar('Prix siège avant invalide');
       return false;
     }
-    if (double.tryParse(_regularSeatPriceController.text) == null) {
+    if (_parseFlexibleDouble(_regularSeatPriceController.text) == null) {
       _showErrorSnackBar('Prix siège régulier invalide');
       return false;
     }
@@ -452,12 +452,34 @@ class _EditEventPageState extends State<EditEventPage>
     );
   }
 
+  double? _parseFlexibleDouble(String value) {
+    final normalized = value.trim().replaceAll(' ', '').replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
   void _updateEventWithImageUpload() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      final price = (_hasSeats || _isFree) ? 0.0 : _parseFlexibleDouble(_priceController.text);
+      final frontSeatPrice = _hasSeats ? _parseFlexibleDouble(_frontSeatPriceController.text) : 0.0;
+      final regularSeatPrice = _hasSeats ? _parseFlexibleDouble(_regularSeatPriceController.text) : 0.0;
+      final headlinePrice = _hasSeats
+          ? [frontSeatPrice, regularSeatPrice].whereType<double>().reduce((a, b) => a < b ? a : b)
+          : price;
+
+      if (!_hasSeats && !_isFree && price == null) {
+        _showErrorSnackBar('Entrez un prix valide');
+        return;
+      }
+      if (_hasSeats && (frontSeatPrice == null || regularSeatPrice == null)) {
+        _showErrorSnackBar('Entrez des prix de sièges valides');
+        return;
+      }
+
       // Upload image if a new one was selected
       String? finalImageUrl = _imageUrl;
       if (_selectedImage != null) {
@@ -486,7 +508,7 @@ class _EditEventPageState extends State<EditEventPage>
         date: newDateTime,
         totalPlaces: int.parse(_capacityController.text),
         availablePlaces: widget.event.availablePlaces,
-        price: (_hasSeats || _isFree) ? 0.0 : double.parse(_priceController.text),
+        price: headlinePrice ?? 0.0,
         latitude: _latitude ?? 0.0,
         longitude: _longitude ?? 0.0,
         imageUrl: finalImageUrl,
@@ -495,8 +517,8 @@ class _EditEventPageState extends State<EditEventPage>
         hasSeats: _hasSeats,
         numberOfRows: _hasSeats ? int.parse(_numberOfRowsController.text) : 0,
         seatsPerRow: _hasSeats ? int.parse(_seatsPerRowController.text) : 0,
-        frontSeatPrice: _hasSeats ? double.parse(_frontSeatPriceController.text) : 0.0,
-        regularSeatPrice: _hasSeats ? double.parse(_regularSeatPriceController.text) : 0.0,
+        frontSeatPrice: frontSeatPrice ?? 0.0,
+        regularSeatPrice: regularSeatPrice ?? 0.0,
       );
 
       // Check if changes are major (date or location changed)
@@ -806,7 +828,7 @@ class _EditEventPageState extends State<EditEventPage>
                                 }
                                 if (value != null &&
                                     value.isNotEmpty &&
-                                    double.tryParse(value) == null) {
+                                    _parseFlexibleDouble(value) == null) {
                                   return 'Entrez un prix valide';
                                 }
                                 return null;
@@ -972,7 +994,7 @@ class _EditEventPageState extends State<EditEventPage>
                                 if (value == null || value.isEmpty) {
                                   return 'Requis';
                                 }
-                                if (double.tryParse(value) == null) {
+                                if (_parseFlexibleDouble(value) == null) {
                                   return 'Prix valide';
                                 }
                                 return null;
@@ -994,7 +1016,7 @@ class _EditEventPageState extends State<EditEventPage>
                                 if (value == null || value.isEmpty) {
                                   return 'Requis';
                                 }
-                                if (double.tryParse(value) == null) {
+                                if (_parseFlexibleDouble(value) == null) {
                                   return 'Prix valide';
                                 }
                                 return null;

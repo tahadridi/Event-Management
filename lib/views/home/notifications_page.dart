@@ -383,24 +383,40 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: warning.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'En attente',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: warning,
+                    // Show real status from notification document
+                    Builder(builder: (_) {
+                      final status = notification['status'] ?? 'pending';
+                      String label;
+                      Color color;
+                      if (status == 'accepted') {
+                        label = 'Confirmé';
+                        color = success;
+                      } else if (status == 'cancelled') {
+                        label = 'Annulé';
+                        color = error;
+                      } else {
+                        label = 'En attente';
+                        color = warning;
+                      }
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                      ),
-                    ),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: color,
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                 ),
                 const SizedBox(height: 16),

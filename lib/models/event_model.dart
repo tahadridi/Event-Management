@@ -93,6 +93,21 @@ class EventModel {
     };
   }
 
+  bool get isFree => !hasSeats && price == 0;
+
+  double get displayPrice {
+    if (!hasSeats) return price;
+
+    final prices = <double>[
+      if (frontSeatPrice > 0) frontSeatPrice,
+      if (regularSeatPrice > 0) regularSeatPrice,
+    ];
+
+    if (prices.isEmpty) return price;
+    prices.sort();
+    return prices.first;
+  }
+
   String get status {
     if (availablePlaces == 0) return 'Complet';
     if (availablePlaces < totalPlaces * 0.2) return 'En attente';

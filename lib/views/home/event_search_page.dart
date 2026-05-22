@@ -740,7 +740,7 @@ class _EventSearchPageState extends State<EventSearchPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    event.price == 0 ? 'Gratuit' : '${event.price.toStringAsFixed(0)} TND',
+                    event.isFree ? 'Gratuit' : '${event.displayPrice.toStringAsFixed(0)} TND',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

@@ -374,11 +374,33 @@ Future<String> createEvent({
         }
 
         // Notify all participants with Firestore notification
+        final newEvent = EventModel(
+          id: oldEvent.id,
+          title: title,
+          description: description,
+          category: category,
+          location: location,
+          latitude: latitude ?? oldEvent.latitude,
+          longitude: longitude ?? oldEvent.longitude,
+          date: eventDateTime,
+          totalPlaces: totalPlaces,
+          availablePlaces: oldEvent.availablePlaces,
+          price: price,
+          organizerId: oldEvent.organizerId,
+          organizerName: oldEvent.organizerName,
+          imageUrl: oldEvent.imageUrl,
+          hasSeats: hasSeats ?? oldEvent.hasSeats,
+          numberOfRows: numberOfRows ?? oldEvent.numberOfRows,
+          seatsPerRow: seatsPerRow ?? oldEvent.seatsPerRow,
+          frontSeatPrice: frontSeatPrice ?? oldEvent.frontSeatPrice,
+          regularSeatPrice: regularSeatPrice ?? oldEvent.regularSeatPrice,
+        );
+
         await notificationService.notifyParticipantsOfChanges(
           eventId: eventId,
           eventTitle: title,
           oldEvent: oldEvent,
-          newEvent: oldEvent, // We'll create proper new event object
+          newEvent: newEvent,
         );
       }
     } catch (e) {

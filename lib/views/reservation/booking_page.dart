@@ -70,7 +70,7 @@ class _BookingPageState extends State<BookingPage>
   @override
   Widget build(BuildContext context) {
     final event = widget.event;
-    final isFree = event.price == 0;
+    final isFree = event.isFree;
     final dateFormat = DateFormat('dd MMMM yyyy', 'fr_FR');
     final timeFormat = DateFormat('HH:mm', 'fr_FR');
 
@@ -725,7 +725,7 @@ class _BookingPageState extends State<BookingPage>
           
           _buildPriceRow(
             'Prix par place',
-            isFree ? 'Gratuit' : '${widget.event.price.toStringAsFixed(0)} TND',
+            isFree ? 'Gratuit' : '${widget.event.displayPrice.toStringAsFixed(0)} TND',
           ),
           const SizedBox(height: 12),
           _buildPriceRow(
@@ -874,16 +874,7 @@ class _BookingPageState extends State<BookingPage>
             color: midnightBlue,
           ),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Vous recevrez un email de confirmation après la réservation',
-              style: TextStyle(
-                fontSize: 11,
-                color: textSecondary,
-                height: 1.3,
-              ),
-            ),
-          ),
+         
         ],
       ),
     );

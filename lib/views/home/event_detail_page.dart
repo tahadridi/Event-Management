@@ -522,12 +522,12 @@ class _EventDetailPageState extends State<EventDetailPage>
                                   child: _buildStatCard(
                                     icon: Icons.local_offer_rounded,
                                     label: 'Prix',
-                                    mainValue: event.price == 0
+                                    mainValue: event.isFree
                                         ? 'Gratuit'
-                                        : event.price.toStringAsFixed(0),
-                                    subValue: event.price == 0 ? '' : 'TND',
+                                      : event.displayPrice.toStringAsFixed(0),
+                                    subValue: event.isFree ? '' : 'TND',
                                     secondLine: '',
-                                    isHighlighted: event.price > 0,
+                                    isHighlighted: !event.isFree,
                                   ),
                                 ),
                               ],

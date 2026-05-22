@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
+import '../home/home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -20,6 +21,11 @@ class _RegisterPageState extends State<RegisterPage>
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isTermsAccepted = false;
+  // Password strength checks
+  bool _pwHasMinLength = false;
+  bool _pwHasUppercase = false;
+  bool _pwHasNumber = false;
+  bool _pwHasSpecialChar = false;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -28,10 +34,7 @@ class _RegisterPageState extends State<RegisterPage>
   // Color palette - Dark Red & Dark Blue
   static const Color darkRed = Color(0xFF8B0000);
   static const Color darkRedLight = Color(0xFFB22222);
-  static const Color darkRedDark = Color(0xFF660000);
   static const Color darkBlue = Color(0xFF00008B);
-  static const Color darkBlueLight = Color(0xFF1A1AA5);
-  static const Color darkBlueDark = Color(0xFF000066);
   static const Color background = Color(0xFFF5F5F5);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF1A1A2E);
@@ -57,6 +60,8 @@ class _RegisterPageState extends State<RegisterPage>
       curve: Curves.easeOut,
     ));
     _animationController.forward();
+    // listen password changes for live criteria
+    _passwordController.addListener(_checkPasswordCriteria);
   }
 
   @override
@@ -66,6 +71,22 @@ class _RegisterPageState extends State<RegisterPage>
     _nameController.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  void _checkPasswordCriteria() {
+    final p = _passwordController.text;
+    final hasMin = p.length >= 8;
+    final hasUpper = p.contains(RegExp(r'[A-Z]'));
+    final hasNum = p.contains(RegExp(r'[0-9]'));
+    final hasSpecial = p.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-\[\]\\/`~;+=]'));
+    if (hasMin != _pwHasMinLength || hasUpper != _pwHasUppercase || hasNum != _pwHasNumber || hasSpecial != _pwHasSpecialChar) {
+      setState(() {
+        _pwHasMinLength = hasMin;
+        _pwHasUppercase = hasUpper;
+        _pwHasNumber = hasNum;
+        _pwHasSpecialChar = hasSpecial;
+      });
+    }
   }
 
   void _showSnackBar(String message, {bool isError = true}) {
@@ -83,9 +104,17 @@ class _RegisterPageState extends State<RegisterPage>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  String _extractErrorMessage(dynamic exception) {
+    final exceptionString = exception.toString();
+    // Extract message from "Exception: message" format
+    if (exceptionString.startsWith('Exception: ')) {
+      return exceptionString.substring(11);
+    }
+    return exceptionString;
   }
 
   void _register() async {
@@ -105,8 +134,8 @@ class _RegisterPageState extends State<RegisterPage>
       _showSnackBar('Please enter your password');
       return;
     }
-    if (_passwordController.text.length < 6) {
-      _showSnackBar('Password must be at least 6 characters');
+    if (!(_pwHasMinLength && _pwHasUppercase && _pwHasNumber && _pwHasSpecialChar)) {
+      _showSnackBar('Le mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial');
       return;
     }
     if (!_isTermsAccepted) {
@@ -123,12 +152,44 @@ class _RegisterPageState extends State<RegisterPage>
         isOrganizer: _isOrganizer,
       );
       if (mounted) {
-        _showSnackBar('Account created successfully!', isError: false);
+        _showSnackBar('Compte créé avec succès!', isError: false);
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Error: ${e.toString()}');
+        _showSnackBar(_extractErrorMessage(e));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _authService.signInWithGoogle();
+      if (!mounted) return;
+      _showSnackBar('Connexion Google réussie!', isError: false);
+      await Future.delayed(const Duration(milliseconds: 250));
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, animation, __) => const HomePage(),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar(_extractErrorMessage(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -302,7 +363,30 @@ class _RegisterPageState extends State<RegisterPage>
                           labelFontSize: isSmallScreen ? 13.0 : 14.0,
                           isSmallScreen: isSmallScreen,
                         ),
-                        SizedBox(height: isSmallScreen ? 20 : 28),
+
+                        const SizedBox(height: 8),
+                        // Password criteria
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: textMuted.withOpacity(0.08)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildPwCriteriaRow(_pwHasMinLength, 'Au moins 8 caractères', isSmallScreen),
+                              const SizedBox(height: 6),
+                              _buildPwCriteriaRow(_pwHasUppercase, 'Au moins une lettre majuscule', isSmallScreen),
+                              const SizedBox(height: 6),
+                              _buildPwCriteriaRow(_pwHasNumber, 'Au moins un chiffre', isSmallScreen),
+                              const SizedBox(height: 6),
+                              _buildPwCriteriaRow(_pwHasSpecialChar, 'Au moins un caractère spécial', isSmallScreen),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: isSmallScreen ? 12 : 18),
                         
                         // Organizer Switch - Redesigned with dual colors
                         Container(
@@ -549,9 +633,7 @@ class _RegisterPageState extends State<RegisterPage>
                           icon: Icons.g_mobiledata,
                           label: 'Google',
                           color: const Color(0xFFDB4437),
-                          onPressed: () {
-                            _showSnackBar('Coming soon', isError: false);
-                          },
+                          onPressed: _signInWithGoogle,
                           height: socialButtonHeight,
                           fontSize: socialButtonTextFontSize,
                           iconSize: isSmallScreen ? 20.0 : 22.0,
@@ -720,6 +802,29 @@ class _RegisterPageState extends State<RegisterPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPwCriteriaRow(bool fulfilled, String text, bool isSmallScreen) {
+    return Row(
+      children: [
+        Icon(
+          fulfilled ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          color: fulfilled ? Colors.green : Colors.grey,
+          size: isSmallScreen ? 16 : 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              color: fulfilled ? Colors.green[700] : textMuted,
+              fontWeight: fulfilled ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

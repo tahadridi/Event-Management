@@ -1,9 +1,37 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // Convertir les erreurs Firebase en messages utilisateur-friendly
+  String _getErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Cet email est déjà utilisé. Veuillez vous connecter ou utiliser un autre email.';
+      case 'weak-password':
+        return 'Le mot de passe est trop faible. Utilisez au moins 6 caractères.';
+      case 'invalid-email':
+        return 'Adresse email invalide. Veuillez vérifier.';
+      case 'user-disabled':
+        return 'Ce compte a été désactivé. Contactez le support.';
+      case 'user-not-found':
+        return 'Cet email n\'existe pas. Veuillez vous inscrire.';
+      case 'wrong-password':
+        return 'Mot de passe incorrect. Réessayez.';
+      case 'operation-not-allowed':
+        return 'Cette opération n\'est pas autorisée. Contactez le support.';
+      case 'too-many-requests':
+        return 'Trop de tentatives. Veuillez réessayer plus tard.';
+      case 'account-exists-with-different-credential':
+        return 'Un compte existe déjà avec cet email.';
+      default:
+        return 'Une erreur s\'est produite. Veuillez réessayer.';
+    }
+  }
 
   // Inscription
   Future<UserCredential> register({
@@ -12,26 +40,32 @@ class AuthService {
     required String name,
     required bool isOrganizer,
   }) async {
-    final cred = await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
-    // Profil complet avec tous les champs nécessaires
-    await _db.collection('users').doc(cred.user!.uid).set({
-      'id': cred.user!.uid,
-      'name': name,
-      'email': email,
-      'phone': '',
-      'bio': '',
-      'profileImageUrl': '',
-      'role': isOrganizer ? 'organizer' : 'user',
-      'favoriteEventIds': [],
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+      // Profil complet avec tous les champs nécessaires
+      await _db.collection('users').doc(cred.user!.uid).set({ 
+        'id': cred.user!.uid,
+        'name': name,
+        'email': email,
+        'phone': '',
+        'bio': '',
+        'profileImageUrl': '',
+        'role': isOrganizer ? 'organizer' : 'user',
+        'favoriteEventIds': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
-    return cred;
+      return cred;
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_getErrorMessage(e));
+    } catch (e) {
+      throw Exception('Une erreur s\'est produite lors de l\'inscription.');
+    }
   }
 
   // Connexion avec Remember Me
@@ -40,22 +74,86 @@ class AuthService {
     required String password,
     bool rememberMe = true,
   }) async {
-    // Note: On mobile platforms, Firebase Auth automatically persists the user
-    // session. The rememberMe parameter is handled differently:
-    // - On mobile: User stays logged in until explicitly signed out
-    // - We'll use SharedPreferences to remember the user's preference
-    //   for UI display, but the actual auth state is handled by Firebase
+   
     
-    final userCredential = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    
-    // Save remember me preference using SharedPreferences
-    // This will be used to determine if we should auto-login on app start
-    await _saveRememberMePreference(rememberMe);
-    
-    return userCredential;
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Save remember me preference using SharedPreferences
+      // This will be used to determine if we should auto-login on app start
+      await _saveRememberMePreference(rememberMe);
+      
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_getErrorMessage(e));
+    } catch (e) {
+      throw Exception('Une erreur s\'est produite lors de la connexion.');
+    }
+  }
+
+  // Connexion avec Google
+  Future<UserCredential> signInWithGoogle({bool rememberMe = true}) async {
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        throw Exception('Connexion Google annulée');
+      }
+
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null && googleAuth.accessToken == null) {
+        throw Exception(
+          'Google a retourné des identifiants incomplets. Vérifiez la configuration SHA-1/SHA-256 Android dans Firebase.',
+        );
+      }
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      await _saveRememberMePreference(rememberMe);
+      await _ensureUserProfile(userCredential.user);
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw Exception('Google auth (${e.code}): ${e.message ?? _getErrorMessage(e)}');
+    } on PlatformException catch (e) {
+      throw Exception('Google platform (${e.code}): ${e.message ?? e.details ?? 'Erreur inconnue'}');
+    } catch (e) {
+      throw Exception('Google sign-in error: $e');
+    }
+  }
+
+  Future<void> _ensureUserProfile(User? user) async {
+    if (user == null) return;
+
+    final userRef = _db.collection('users').doc(user.uid);
+    final doc = await userRef.get();
+    final displayName = user.displayName?.trim().isNotEmpty == true
+        ? user.displayName!.trim()
+        : (user.email?.split('@').first ?? 'Utilisateur');
+
+    final data = <String, dynamic>{
+      'id': user.uid,
+      'name': displayName,
+      'email': user.email ?? '',
+      'phone': doc.data()?['phone'] ?? '',
+      'bio': doc.data()?['bio'] ?? '',
+      'profileImageUrl': user.photoURL ?? doc.data()?['profileImageUrl'] ?? '',
+      'role': doc.data()?['role'] ?? 'user',
+      'favoriteEventIds': doc.data()?['favoriteEventIds'] ?? [],
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (!doc.exists) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+    }
+
+    await userRef.set(data, SetOptions(merge: true));
   }
 
   // Save remember me preference
@@ -81,15 +179,21 @@ class AuthService {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        throw Exception('Aucun utilisateur trouvé avec cet email');
-      } else if (e.code == 'invalid-email') {
-        throw Exception('Adresse email invalide');
-      } else {
-        throw Exception('Erreur: ${e.message}');
-      }
+      throw Exception(_getErrorMessage(e));
     } catch (e) {
-      rethrow;
+      throw Exception('Une erreur s\'est produite. Veuillez réessayer.');
+    }
+  }
+
+  // Vérifie si l'email est déjà associé à un compte Firebase Auth
+  Future<bool> emailHasAuthAccount(String email) async {
+    try {
+      final methods = await _auth.fetchSignInMethodsForEmail(email);
+      return methods.isNotEmpty;
+    } on FirebaseAuthException {
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -133,15 +237,9 @@ class AuthService {
       // Changer le mot de passe
       await user.updatePassword(newPassword);
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'wrong-password') {
-        throw Exception('Le mot de passe actuel est incorrect');
-      } else if (e.code == 'weak-password') {
-        throw Exception('Le nouveau mot de passe est trop faible');
-      } else {
-        throw Exception('Erreur: ${e.message}');
-      }
+      throw Exception(_getErrorMessage(e));
     } catch (e) {
-      rethrow;
+      throw Exception('Une erreur s\'est produite. Veuillez réessayer.');
     }
   }
 }
