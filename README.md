@@ -46,11 +46,7 @@
 
 ---
 
-# 06. Diagramme de cas d'utilisation
-laisser la page vide
----
-
-# 07. Outils techniques
+# 06. Outils techniques
 - **Flutter**: interface utilisateur.
 - **Dart**: langage principal.
 - **Firebase Auth**: authentification.
